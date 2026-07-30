@@ -1,0 +1,30 @@
+# Adicionar estes dois serviços ao docker-compose.yml existente em
+# /home/mr_robot/homelab/. Porta externa sugerida: 8087 (livre no stack atual:
+# pi-hole 8081, homer 8082, uptime-kuma 8083, firefly-iii 8084,
+# vaultwarden 8085 [comentado], beszel 8086, jellyfin 8096).
+
+services:
+  sentinel-backend:
+    build: ./homelab-sentinel/backend
+    container_name: sentinel-backend
+    restart: unless-stopped
+    # Necessário para o coletor Docker (bollard) ler stats de outros containers
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - homelab
+
+  sentinel-frontend:
+    build: ./homelab-sentinel/frontend
+    container_name: sentinel-frontend
+    restart: unless-stopped
+    ports:
+      - "8087:80"
+    depends_on:
+      - sentinel-backend
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true # ajustar para o nome da network já usada no seu compose
