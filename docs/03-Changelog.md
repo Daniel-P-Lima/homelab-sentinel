@@ -46,4 +46,16 @@ tags: [homelab, changelog]
   manual via `scp` continua sendo mais simples que manter uma pipeline
   de deploy pra um alvo que ainda muda de forma.
 
-<!-- Próxima entrada: Fase 1 — coletor Docker -->
+## 2026-07-30 — Instruções para o agente + limpeza de build
+- Adicionado `CLAUDE.md` na raiz do repo (convenções, roadmap, CI,
+  armadilhas) e outro em `/home/mr_robot/homelab` (contexto de infra).
+- `frontend/tsconfig.tsbuildinfo` removido do controle de versão e
+  adicionado ao `.gitignore` — é artefato incremental do `vue-tsc` e
+  aparecia no diff de todo PR.
+- `frontend/Dockerfile`: `npm install` → `npm ci`, com o
+  `package-lock.json` copiado junto. O build de produção passa a usar
+  exatamente as versões que o CI validou, em vez de re-resolver.
+- Adicionado `frontend/.dockerignore`: sem ele o `COPY . .` viria por
+  cima do `node_modules` instalado pelo `npm ci`.
+
+<!-- Próxima entrada: Fase 2 — integração Pi-hole -->

@@ -1,8 +1,10 @@
 # --- build stage ---
 FROM node:22-slim AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+# npm ci (e não npm install) para instalar exatamente as versões do lock —
+# as mesmas que o CI validou. Exige package-lock.json presente.
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 RUN npm run build
 
