@@ -1,3 +1,4 @@
+mod docker;
 mod routes;
 mod state;
 
@@ -16,6 +17,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/health", get(routes::health))
+        .route("/api/containers", get(routes::list_containers))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);

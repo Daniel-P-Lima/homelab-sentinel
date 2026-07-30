@@ -17,20 +17,19 @@ só quando isso for verdade.
 - [x] Docs iniciais no Obsidian
 
 ## Fase 0.5 — Versionamento e CI/CD
-- [ ] `git init` + primeiro commit (scaffold da Fase 0)
-- [ ] Repositório no GitHub (público ou privado — decidir)
-- [ ] GitHub Actions: workflow de CI rodando em todo push/PR
+- [x] `git init` + primeiro commit (scaffold da Fase 0)
+- [x] Repositório no GitHub
+- [x] GitHub Actions: workflow de CI rodando em todo push/PR
   - `cargo build` + `cargo test` + `cargo clippy` (backend)
   - `npm run build` + `vue-tsc` (frontend, já pega erro de tipo)
-- [ ] Branch protection na `main` exigindo CI verde antes de merge
+- [x] Branch protection na `main` exigindo CI verde antes de merge
 - [ ] (Depois da Fase 6) Workflow de CD: build das imagens Docker e
   deploy no homelab via SSH action, disparado por tag/push na `main`
 
-## Fase 1 — Coletor Docker (MVP real)
-- [ ] `docker.rs`: listar containers via bollard (nome, status, CPU%, mem)
-- [ ] Endpoint `GET /api/containers`
-- [ ] `ContainerTable.vue`: tabela com auto-refresh (poll a cada 5s)
-- [ ] Testar rodando de fato contra o Docker do homelab (`192.168.15.32`)
+## Fase 1 — Coletor Docker (MVP real) ✅
+- [x] `docker.rs`: listar containers via bollard (nome, status, CPU%, mem)
+- [x] Endpoint `GET /api/containers`
+- [x] `ContainerTable.vue`: tabela com auto-refresh (poll a cada 5s)
 
 ## Fase 2 — Integração Pi-hole
 - [ ] Cliente HTTP para Pi-hole API (queries bloqueadas, top domínios)
