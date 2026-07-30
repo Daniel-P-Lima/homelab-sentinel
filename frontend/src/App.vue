@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { fetchHealth, type HealthResponse } from './api'
+import ContainerTable from './components/ContainerTable.vue'
 
 const health = ref<HealthResponse | null>(null)
 const error = ref<string | null>(null)
@@ -35,17 +36,14 @@ onUnmounted(() => {
     </p>
     <p v-else>Carregando...</p>
 
-    <!--
-      Fase 1 vai adicionar <ContainerTable /> aqui, consumindo
-      GET /api/containers. Ver docs/02-Roadmap.md.
-    -->
+    <ContainerTable />
   </main>
 </template>
 
 <style scoped>
 main {
   font-family: system-ui, sans-serif;
-  max-width: 640px;
+  max-width: 720px;
   margin: 4rem auto;
   padding: 0 1rem;
 }
