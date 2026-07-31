@@ -1,5 +1,7 @@
 /backend/target
 /frontend/node_modules
 /frontend/dist
+# artefato de build incremental do vue-tsc — sujava o diff de todo PR
+/frontend/tsconfig.tsbuildinfo
 *.db
 .env

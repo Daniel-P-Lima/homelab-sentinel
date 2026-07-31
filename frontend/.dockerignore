@@ -1,0 +1,5 @@
+# O `COPY . .` do Dockerfile viria por cima do node_modules instalado pelo
+# `npm ci`; ignorar aqui garante que o build use só o que veio do lock.
+node_modules
+dist
+tsconfig.tsbuildinfo
