@@ -46,11 +46,11 @@ próprio homelab.
 
 ## Ligação com o resto do homelab
 
-Servidor: Ubuntu Server, `192.168.15.32`, usuário `mr_robot`,
-diretório `/home/mr_robot/homelab`. Serviços existentes: Pi-hole (8081),
-Homer (8082), Uptime Kuma (8083), Firefly III (8084), Beszel (8086),
-Jellyfin (8096). Sentinel deve rodar em uma porta livre (sugestão: 8087) e
-ser adicionado ao `docker-compose.yml` existente, não substituí-lo.
+Servidor: Ubuntu Server, `192.168.15.108`, usuário `mr_robot`. Cada stack
+tem seu próprio compose em `/home/mr_robot/docker/<stack>/`. Serviços
+existentes: Pi-hole (DNS 53, web 8082), FileBrowser (8080), qBittorrent
+(8081), Jellyfin (8096). O Sentinel roda pelo `docker-compose.yml` do
+próprio repo (`/home/mr_robot/homelab-sentinel`), na porta 8087.
 
 ## Índice de documentos
 

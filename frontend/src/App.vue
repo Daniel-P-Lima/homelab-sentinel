@@ -1,29 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { fetchHealth, type HealthResponse } from './api'
+import { useHealth } from './composables/useHealth'
 import ContainerTable from './components/ContainerTable.vue'
 
-const health = ref<HealthResponse | null>(null)
-const error = ref<string | null>(null)
-let timer: number | undefined
-
-async function poll() {
-  try {
-    health.value = await fetchHealth()
-    error.value = null
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'erro desconhecido'
-  }
-}
-
-onMounted(() => {
-  poll()
-  timer = window.setInterval(poll, 5000)
-})
-
-onUnmounted(() => {
-  if (timer) window.clearInterval(timer)
-})
+const { health, error } = useHealth()
 </script>
 
 <template>

@@ -1,8 +1,8 @@
 # CLAUDE.md — Homelab Sentinel
 
-Instruções para o Claude Code neste repositório. Se você está trabalhando no
-diretório pai (`/home/mr_robot/homelab`), leia também o `CLAUDE.md` de lá —
-ele tem o contexto de infra (portas ocupadas, `sudo docker`, o `.env` da stack).
+Instruções para o Claude Code neste repositório. O repo fica em
+`/home/mr_robot/homelab-sentinel` no servidor (`192.168.15.108`); as outras
+stacks do homelab ficam em `/home/mr_robot/docker/<stack>/` (pihole, media).
 
 ---
 
@@ -46,10 +46,9 @@ Mantenha o padrão ao criar referências novas.
 - **Fase 0** (scaffold), **0.5** (Git + CI) e **1** (coletor Docker) feitas.
 - **Próxima: Fase 2 — integração com o Pi-hole** (cliente HTTP, endpoint
   `GET /api/pihole/summary`, card no dashboard).
-- ⚠️ A Fase 1 está em `feature/fase-1-coletor-docker`, **ainda não mergeada na
-  `main`** (2 commits à frente), apesar de já marcada `[x]` no roadmap. Confirme
-  em que branch está antes de começar coisa nova — não abra a Fase 2 em cima de
-  uma `main` que ainda não tem o coletor.
+- Fase 1 mergeada na `main` (PRs #1–#3). Correções do coletor (CPU% real,
+  stats em paralelo, ping no boot) e deploy via `docker-compose.yml` em
+  `fix/coletor-docker-e-deploy` — ver `docs/03-Changelog.md`.
 
 ---
 
@@ -61,15 +60,17 @@ backend/
   src/
     main.rs      # bootstrap: router axum, layers, tokio tasks
     state.rs     # AppState (Arc<AppStateInner>), clientes externos
-    routes.rs    # handlers HTTP
+    routes.rs    # handlers HTTP + AppError (IntoResponse)
     docker.rs    # coletor via bollard
 frontend/
   src/
     main.ts            App.vue
     api.ts             # client HTTP tipado — espelha os tipos do backend
     components/        # ContainerTable.vue
+    composables/       # usePolling (genérico), useContainers, useHealth
   nginx.conf           # produção: serve o dist + proxy /api → sentinel-backend:8087
 docs/                  # vault Obsidian (ver acima)
+docker-compose.yml     # stack completa: docker-proxy + backend + frontend
 .github/workflows/ci.yml
 ```
 
@@ -83,12 +84,16 @@ como já está no código. Comentário só onde explica *por quê*, não *o quê
 a densidade do código existente.
 
 **Backend (Rust)**
-- Erros com `thiserror`, propagados como `Result<T, _>`. Cada módulo de coleta
-  tem seu enum de erro (ver `DockerError` em `docker.rs`).
+- Erros com `thiserror`. Cada módulo de coleta tem seu enum de erro (ver
+  `DockerError` em `docker.rs`), que vira uma variante de `AppError`
+  (`routes.rs`) via `#[from]`. Handlers devolvem `Result<Json<T>, AppError>` e
+  usam `?`; o `IntoResponse` de `AppError` decide o status e monta o
+  `{"error": "..."}`.
 - **Dependência externa indisponível nunca derruba o processo.** O padrão já
-  estabelecido: `AppState.docker` é `Option<Docker>`; se a conexão falha no
-  boot, loga `warn!` e segue, e o handler devolve **503 com JSON legível**
-  (`{"error": "..."}`). Repita isso para Pi-hole, Uptime Kuma e o que vier.
+  estabelecido: `AppState.docker` é `Option<Docker>`; o boot faz `ping` (criar o
+  cliente bollard não abre conexão nenhuma), se falha loga `warn!` e segue, e o
+  handler devolve `AppError::Unavailable` → **503**. Repita isso para Pi-hole,
+  Uptime Kuma e o que vier.
   Nada de `.unwrap()` em handler.
 - Logging com `tracing` (`info!`/`warn!`/`error!`), nunca `println!`.
 - Toda mudança de schema SQLite via `sqlx migrate` — nunca `ALTER TABLE` na mão.
@@ -96,8 +101,8 @@ a densidade do código existente.
 **Frontend (Vue 3 + TS)**
 - `<script setup lang="ts">`, Composition API.
 - Lógica de dados em **composables** (`useContainers()`), não solta dentro do
-  `.vue`. Os componentes atuais ainda têm o `setInterval` inline — ao mexer
-  neles, é uma boa hora de extrair.
+  `.vue`. Poll novo = `usePolling(fetchX)` — ele já evita requests sobrepostas
+  e mantém o último dado bom quando uma chamada falha.
 - Todo endpoint novo ganha sua função e seus tipos em `src/api.ts`. O tipo
   precisa bater com o `#[derive(Serialize)]` do backend, incluindo os
   `Option<T>` → `T | null`.
@@ -122,16 +127,18 @@ cd frontend && npm install && npm run dev   # :5173, proxy /api → 8087
 cd backend  && cargo build && cargo test && cargo clippy --all-targets -- -D warnings
 cd frontend && npx vue-tsc -b && npm run build
 
-# validação em container
-docker compose -f docker-compose.snippet.yml build
+# sem toolchain no servidor: CI do backend num container (mesma versão do Dockerfile)
+docker run --rm -v "$PWD/backend":/src -w /src rust:1.80-slim \
+  sh -c 'rustup component add clippy && cargo test --locked && cargo clippy --locked --all-targets -- -D warnings'
 ```
 
-Deploy no homelab (`192.168.15.32`), a partir de `/home/mr_robot/homelab`:
+Deploy no homelab (`192.168.15.108`), a partir da raiz deste repo
+(o usuário está no grupo `docker`, não precisa de `sudo`):
 
 ```bash
-sudo docker compose up -d --build sentinel-backend sentinel-frontend
-sudo docker compose logs -f sentinel-backend
-# acesso: http://192.168.15.32:8087
+docker compose up -d --build
+docker compose logs -f sentinel-backend
+# acesso: http://192.168.15.108:8087
 ```
 
 ---
@@ -173,13 +180,17 @@ Ao fechar uma fase:
 ## Armadilhas conhecidas
 
 1. **Pins no `Cargo.toml`.** `indexmap`, `time` e `idna_adapter` estão fixados
-   com `=` porque um ambiente de dev anterior tinha Rust 1.75. Produção usa
-   `rust:1.80-slim`. Entenda esse histórico antes de despinar; e como o
-   `Dockerfile` builda com `--locked`, o `Cargo.lock` precisa acompanhar
-   qualquer mexida em dependência.
-2. **`docker-compose.snippet.yml` é referência histórica**: os dois serviços já
-   foram mesclados no `docker-compose.yml` do homelab. Mudança de compose
-   precisa ir nos dois arquivos, ou o snippet precisa ser aposentado.
-3. **O backend precisa do socket Docker** (`/var/run/docker.sock`, montado
-   read-only). Fora do homelab ele sobe normalmente, só que `/api/containers`
-   devolve 503 — comportamento esperado, não bug.
+   com `=` porque um ambiente de dev anterior tinha Rust 1.75. Produção e CI
+   usam Rust 1.80 (o CI é fixado na mesma versão do `Dockerfile` de propósito).
+   Entenda esse histórico antes de despinar; e como tudo builda com `--locked`,
+   o `Cargo.lock` precisa acompanhar qualquer mexida em dependência.
+2. **O backend não monta o `docker.sock`.** Ele fala com o
+   `tecnativa/docker-socket-proxy` via `DOCKER_HOST=tcp://docker-proxy:2375`, e
+   o proxy só libera `GET` em `/containers`. Coletor novo que precise de outro
+   endpoint do Docker (ex: `/events`) exige liberar a variável correspondente
+   no proxy. Sem `DOCKER_HOST`, cai no socket local — é o caso do `cargo run`.
+3. Fora de um ambiente com Docker o backend sobe normalmente, só que
+   `/api/containers` devolve 503 — comportamento esperado, não bug.
+4. **Stats levam ~1-2s por container** (`one_shot: false`, necessário pra CPU%
+   ser o uso atual). Por isso são buscados em paralelo (`STATS_CONCURRENCY`).
+   Não volte pra `one_shot: true` pra "acelerar".

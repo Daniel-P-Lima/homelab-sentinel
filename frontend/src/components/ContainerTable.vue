@@ -1,31 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { fetchContainers, type ContainerInfo } from '../api'
+import { useContainers } from '../composables/useContainers'
 
-const containers = ref<ContainerInfo[]>([])
-const error = ref<string | null>(null)
-const loading = ref(true)
-let timer: number | undefined
-
-async function poll() {
-  try {
-    containers.value = await fetchContainers()
-    error.value = null
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'erro desconhecido'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  poll()
-  timer = window.setInterval(poll, 5000)
-})
-
-onUnmounted(() => {
-  if (timer) window.clearInterval(timer)
-})
+const { containers, error, loading } = useContainers()
 
 function fmtPercent(v: number | null): string {
   return v === null ? '—' : `${v.toFixed(1)}%`
@@ -44,13 +20,14 @@ function fmtMem(usage: number | null, limit: number | null): string {
   <section>
     <h2>Containers</h2>
 
-    <p v-if="loading">Carregando containers...</p>
-    <p v-else-if="error" class="error">
-      Não foi possível carregar os containers: {{ error }}
+    <!-- erro aparece junto com a última tabela boa, não no lugar dela -->
+    <p v-if="error" class="error">
+      Não foi possível atualizar os containers: {{ error }}
     </p>
-    <p v-else-if="containers.length === 0">Nenhum container encontrado.</p>
+    <p v-if="loading">Carregando containers...</p>
+    <p v-else-if="containers && containers.length === 0">Nenhum container encontrado.</p>
 
-    <table v-else>
+    <table v-else-if="containers">
       <thead>
         <tr>
           <th>Nome</th>
@@ -61,7 +38,7 @@ function fmtMem(usage: number | null, limit: number | null): string {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="c in containers" :key="c.id" :class="`state-${c.state}`">
+        <tr v-for="c in containers" :key="c.id">
           <td>{{ c.name }}</td>
           <td class="image">{{ c.image }}</td>
           <td>
