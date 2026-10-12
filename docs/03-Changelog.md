@@ -98,4 +98,37 @@ tags: [homelab, changelog]
   num navegador de outra máquina. `ufw` não foi verificado (precisa de
   `sudo`), mas portas publicadas pelo Docker passam por fora do `ufw`.
 
-<!-- Próxima entrada: Fase 2 — integração Pi-hole -->
+## 2026-10-12 — Fase 2: integração Pi-hole + interface nova
+- `backend/src/pihole.rs`: cliente da API v6 (`reqwest`). Login com
+  `POST /api/auth`, `sid` guardado e reaproveitado, relogin automático em
+  401. O resumo junta `/api/stats/summary`, `/api/stats/top_domains?blocked=true`
+  e `/api/dns/blocking`, buscados em paralelo (`tokio::try_join!`).
+- Endpoint `GET /api/pihole/summary`. Sem config → 503; erro falando com
+  o Pi-hole → 502 (`AppError::Pihole`). Ver [[01-Architecture]].
+- Config por `PIHOLE_URL` / `PIHOLE_PASSWORD`; a senha vem de um `.env`
+  fora do Git (`.env.example` versionado). Backend alcança o Pi-hole por
+  `host.docker.internal:8082`.
+- 4 testes novos com respostas reais da API (formato do resumo, gravity
+  nunca rodado, login válido e senha errada).
+- Frontend: `PiholeCard.vue` (estado da proteção, consultas/bloqueadas
+  nas últimas 24h, aparelhos ativos, domínios na blocklist, top 5
+  bloqueados) com `usePihole()` em cima do `usePolling`.
+- Interface redesenhada: layout em cards (Pi-hole + containers lado a
+  lado, empilhando no celular), tema claro/escuro seguindo o sistema,
+  uptime legível ("2h 15m"), números em pt-BR, contador "X de Y rodando",
+  barra de uso de memória, tabela com rolagem horizontal em tela estreita.
+- **Validado no homelab:** `docker compose up -d --build`; log mostra
+  "conectado ao Pi-hole"; `/api/pihole/summary` devolve os dados reais;
+  três polls seguidos abrem **uma** sessão só; derrubando a sessão pelo
+  lado do Pi-hole, o próximo poll reloga e responde 200. `cargo test`
+  (10 testes), `clippy -D warnings`, `vue-tsc` e `vite build` rodados em
+  containers com as versões do CI.
+- **Pendências:**
+  - A interface nova só foi validada por build e pelo HTML servido —
+    falta abrir num navegador (desktop e celular, claro e escuro).
+  - O caminho 502 (Pi-hole fora do ar) não foi testado ao vivo: parar o
+    Pi-hole derruba o DNS da casa.
+  - O Pi-hole ainda está com a senha placeholder `TROQUE_ESTA_SENHA`.
+    Ao trocar, atualizar também o `.env` do Sentinel e recriar o backend.
+
+<!-- Próxima entrada: Fase 3 — background jobs + persistência histórica -->

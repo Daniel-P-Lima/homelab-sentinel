@@ -30,3 +30,30 @@ export async function fetchContainers(): Promise<ContainerInfo[]> {
   }
   return res.json()
 }
+
+export interface TopDomain {
+  domain: string
+  count: number
+}
+
+/** Espelha `PiholeSummary` em backend/src/pihole.rs. Queries = últimas 24h. */
+export interface PiholeSummary {
+  blocking: 'enabled' | 'disabled' | 'failed' | 'unknown'
+  queries_total: number
+  queries_blocked: number
+  percent_blocked: number
+  unique_domains: number
+  clients_active: number
+  domains_on_blocklist: number
+  gravity_last_update: number | null
+  top_blocked: TopDomain[]
+}
+
+export async function fetchPiholeSummary(): Promise<PiholeSummary> {
+  const res = await fetch('/api/pihole/summary')
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error ?? `GET /api/pihole/summary falhou: ${res.status}`)
+  }
+  return res.json()
+}

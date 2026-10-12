@@ -1,7 +1,7 @@
 ---
 tags: [homelab, arquitetura]
 status: em-andamento
-atualizado: 2026-10-06
+atualizado: 2026-10-12
 ---
 
 # Arquitetura — Homelab Sentinel
@@ -57,6 +57,7 @@ homelab-sentinel/
 │   └── src/
 │       ├── main.rs        # bootstrap axum + tokio tasks
 │       ├── docker.rs       # coletor via bollard
+│       ├── pihole.rs       # cliente da API v6 do Pi-hole
 │       ├── routes.rs       # handlers HTTP
 │       └── state.rs        # AppState compartilhado (SQLite pool, cache)
 ├── frontend/
@@ -67,8 +68,11 @@ homelab-sentinel/
 │       ├── main.ts
 │       ├── App.vue
 │       ├── api.ts          # client HTTP tipado
+│       ├── format.ts       # formatação pt-BR (números, duração, "há X")
+│       ├── style.css       # tokens de cor (claro/escuro) e classes base
 │       └── components/
-│           └── ContainerTable.vue
+│           ├── ContainerTable.vue
+│           └── PiholeCard.vue
 └── docs/                   # este vault
 ```
 
@@ -91,6 +95,23 @@ homelab-sentinel/
   devolve `precpu_stats` preenchido; com `one_shot: true` o delta vira o
   uso acumulado desde o start do container. Custa ~1-2s por container,
   então os stats são buscados em paralelo (`buffer_unordered`).
+- **Pi-hole v6: sessão reaproveitada.** A API v6 autentica com
+  `POST /api/auth` → `sid`, e o Pi-hole limita sessões simultâneas
+  (`max_sessions`, 16). Logar a cada poll esgotaria as vagas, então o
+  `PiholeClient` guarda o `sid` num `tokio::sync::Mutex` e só reloga ao
+  receber 401. O mutex fica segurado durante o login para que as três
+  chamadas paralelas do resumo não abram três sessões.
+- **Pi-hole não segue o "falhou no boot = 503" do Docker.** O cliente
+  é preguiçoso e se recupera sozinho (reloga a cada request), então um
+  Pi-hole fora do ar no boot não precisa desligar o card até o próximo
+  restart. `None` (→ 503) só quando não há `PIHOLE_URL`/`PIHOLE_PASSWORD`;
+  falha falando com o Pi-hole → **502** (`AppError::Pihole`), porque o
+  erro é do serviço do outro lado.
+- **Sentinel → Pi-hole pelo host**, não por rede Docker compartilhada:
+  `host.docker.internal:8082` (`extra_hosts: host-gateway`). As stacks
+  continuam independentes; o custo é depender da porta publicada.
+- **`reqwest` sem default features**: só HTTP na LAN, sem TLS — não puxa
+  openssl/rustls para a imagem.
 - **Memória como o `docker stats`**: `usage - inactive_file` (cgroup v2) ou
   `usage - total_inactive_file` (v1) — page cache que o kernel pode
   reclamar não conta como uso.

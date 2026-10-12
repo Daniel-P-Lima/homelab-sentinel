@@ -25,6 +25,13 @@ services:
     restart: unless-stopped
     environment:
       - DOCKER_HOST=tcp://docker-proxy:2375
+      # O Pi-hole roda em outra stack (~/docker/pihole), noutra rede Docker.
+      # Em vez de amarrar as duas redes, o backend sai pelo host e usa a
+      # porta publicada 8082. Senha vem do .env (ver .env.example).
+      - PIHOLE_URL=http://host.docker.internal:8082
+      - PIHOLE_PASSWORD=${PIHOLE_PASSWORD:-}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     depends_on:
       - docker-proxy
     networks:
