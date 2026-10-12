@@ -1,6 +1,6 @@
 ---
 tags: [homelab, setup]
-atualizado: 2026-07-30
+atualizado: 2026-10-07
 ---
 
 # Setup — Homelab Sentinel
@@ -22,22 +22,32 @@ npm run dev
 # escutando em http://localhost:5173, com /api proxeado pro backend
 ```
 
-## Rodando via Docker (validação local antes de ir pro homelab)
+## Deploy no homelab (`192.168.15.108`)
+
+O repo fica clonado em `/home/mr_robot/homelab-sentinel` e o
+`docker-compose.yml` da raiz sobe a stack completa (docker-proxy +
+backend + frontend) numa rede própria. O usuário `mr_robot` está no
+grupo `docker`, então não precisa de `sudo`.
 
 ```bash
-docker compose -f docker-compose.snippet.yml build
-docker compose -f docker-compose.snippet.yml up
+cd ~/homelab-sentinel
+git pull
+docker compose up -d --build
+docker compose logs -f sentinel-backend   # deve aparecer "conectado ao Docker daemon"
 ```
 
-## Deploy no homelab (`192.168.15.32`)
 
-1. Copiar a pasta `homelab-sentinel/` para `/home/mr_robot/homelab/`
-   (via `scp -r homelab-sentinel mr_robot@192.168.15.32:~/homelab/`).
-2. Mesclar o conteúdo de `docker-compose.snippet.yml` no
-   `docker-compose.yml` já existente (ajustar o nome da `network`).
-3. `docker compose up -d --build sentinel-backend sentinel-frontend`
-4. Acessar `http://192.168.15.32:8087`.
-5. (Opcional) Adicionar o link no Homer.
+Acesso de qualquer máquina da rede: `http://192.168.15.108:8087`.
+
+O servidor não tem `cargo`/`npm`; para rodar o que o CI cobra antes de
+subir, usar containers (mesmas versões do CI/Dockerfile):
+
+```bash
+docker run --rm -v "$PWD/backend":/src -w /src rust:1.80-slim \
+  sh -c 'rustup component add clippy && cargo test --locked && cargo clippy --locked --all-targets -- -D warnings'
+docker run --rm -v "$PWD/frontend":/src:ro node:22-slim \
+  sh -c 'cp -r /src /app && cd /app && npm ci && npx vue-tsc -b && npm run build'
+```
 
 ## Git / GitHub
 
@@ -59,7 +69,8 @@ Depois disso:
    PR pra `main` — o CI vai validar antes do merge.
 
 ## Notas
-- O backend precisa de acesso ao socket Docker (`/var/run/docker.sock`)
-  para o coletor da Fase 1 — já mapeado no snippet, montado **read-only**.
+- O backend não monta o socket Docker: quem monta é o
+  `docker-proxy` (`tecnativa/docker-socket-proxy`), que só libera `GET` em
+  `/containers` e `/_ping`. Ver [[01-Architecture]].
 - Nenhum dado sensível deve ir para o SQLite sem criptografia se, no
   futuro, o Sentinel passar a lidar com credenciais (ex: tokens de API).

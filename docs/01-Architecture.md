@@ -1,7 +1,7 @@
 ---
 tags: [homelab, arquitetura]
 status: em-andamento
-atualizado: 2026-07-30
+atualizado: 2026-10-06
 ---
 
 # Arquitetura — Homelab Sentinel
@@ -83,6 +83,17 @@ homelab-sentinel/
   container de banco.
 - **bollard em vez de `docker` CLI via `std::process::Command`**: evita
   parsing de texto e shell-injection, e é assíncrono nativamente.
+- **docker-socket-proxy entre o backend e o Docker**: montar o
+  `docker.sock` (mesmo `:ro`) dá acesso total à API — criar container
+  privilegiado, montar `/` do host. O proxy só deixa passar `GET` em
+  `/containers`, então um bug ou RCE no backend não vira root no servidor.
+- **CPU% com `one_shot: false`**: o daemon espera dois ciclos de leitura e
+  devolve `precpu_stats` preenchido; com `one_shot: true` o delta vira o
+  uso acumulado desde o start do container. Custa ~1-2s por container,
+  então os stats são buscados em paralelo (`buffer_unordered`).
+- **Memória como o `docker stats`**: `usage - inactive_file` (cgroup v2) ou
+  `usage - total_inactive_file` (v1) — page cache que o kernel pode
+  reclamar não conta como uso.
 
 ## Versionamento e CI/CD
 
@@ -91,7 +102,8 @@ homelab-sentinel/
   pro tamanho deste projeto.
 - **CI (GitHub Actions, `.github/workflows/ci.yml`):** roda em todo
   push e pull request.
-  - Backend: `cargo build`, `cargo test`, `cargo clippy -- -D warnings`.
+  - Backend: `cargo build`, `cargo test`, `cargo clippy --all-targets -- -D warnings`,
+    com Rust fixado em 1.80 (mesmo do `Dockerfile`).
   - Frontend: `npm ci`, `vue-tsc` (type-check), `npm run build`.
   - Isso pega os mesmos erros que validamos manualmente na Fase 0
     (compilação Rust + checagem de tipos TS), automaticamente a cada
@@ -109,8 +121,9 @@ homelab-sentinel/
 ## Convenções de código
 
 - Erros: `thiserror` no backend, propagados como `Result<T, AppError>` que
-  implementa `IntoResponse`.
+  implementa `IntoResponse` (`routes.rs`). Erros dos coletores entram via
+  `#[from]`; `AppError::Unavailable` → 503, o resto → 500.
 - Frontend: composables (`useContainers()`, etc.) em vez de lógica direto
-  nos componentes `.vue`.
+  nos componentes `.vue`, todos em cima de `usePolling()`.
 - Toda mudança de schema do SQLite via migração (`sqlx migrate`), nunca
   `ALTER TABLE` manual.

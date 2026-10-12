@@ -1,0 +1,45 @@
+# Stack completa do Sentinel. Sobe com:
+#   docker compose up -d --build
+# Acesso: http://<ip-do-servidor>:8087 (portas já ocupadas no servidor:
+# 53 pihole, 8080 filebrowser, 8081 qbittorrent, 8082 pihole web, 8096 jellyfin).
+
+services:
+  # O backend nunca toca o docker.sock direto: montar o socket, mesmo com :ro,
+  # dá acesso total à API do Docker (equivalente a root no host) — o :ro vale
+  # pro arquivo, não pras chamadas. O proxy só libera GET em /containers e
+  # /_ping; qualquer POST/DELETE ou outro endpoint volta 403.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: sentinel-docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sentinel
+
+  sentinel-backend:
+    build: ./backend
+    container_name: sentinel-backend
+    restart: unless-stopped
+    environment:
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    depends_on:
+      - docker-proxy
+    networks:
+      - sentinel
+
+  sentinel-frontend:
+    build: ./frontend
+    container_name: sentinel-frontend
+    restart: unless-stopped
+    ports:
+      - "8087:80"
+    depends_on:
+      - sentinel-backend
+    networks:
+      - sentinel
+
+networks:
+  sentinel:

@@ -16,8 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Mesma versão do backend/Dockerfile: com stable, uma dependência que
+      # exigisse Rust mais novo passaria no CI e quebraria o build da imagem.
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.80
         with:
           components: clippy
 
@@ -27,10 +29,10 @@ jobs:
           workspaces: backend
 
       - name: cargo build
-        run: cargo build --verbose
+        run: cargo build --locked --verbose
 
       - name: cargo test
-        run: cargo test --verbose
+        run: cargo test --locked --verbose
 
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings

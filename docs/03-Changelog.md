@@ -58,4 +58,44 @@ tags: [homelab, changelog]
 - Adicionado `frontend/.dockerignore`: sem ele o `COPY . .` viria por
   cima do `node_modules` instalado pelo `npm ci`.
 
+## 2026-10-07 — Correções do coletor Docker + primeiro deploy no homelab
+- **CPU% era a média da vida do container, não o uso atual.** Com
+  `one_shot: true` o daemon devolve `precpu_stats` zerado, e o delta
+  virava o acumulado desde o start. Agora `one_shot: false`, e o cálculo
+  devolve `None` se não houver amostra anterior.
+- Com `one_shot: false` cada amostra leva ~1-2s, então os stats passaram
+  a ser buscados em paralelo (`buffer_unordered`, até 8 por vez). Com 4
+  containers, `/api/containers` responde em ~2s.
+- Memória agora desconta `inactive_file` (cgroup v2) / `total_inactive_file`
+  (v1), igual ao `docker stats`.
+- Testes unitários para o cálculo de CPU e memória (`cargo test` rodava
+  zero testes).
+- **503 nunca acontecia:** criar o cliente bollard não abre conexão, então
+  "Docker indisponível" só aparecia na request, como 500. Agora o boot faz
+  `ping` (5 tentativas, 2s entre elas, para o caso do proxy subir depois)
+  e o handler devolve 503.
+- `AppError` com `IntoResponse` em `routes.rs`, como a arquitetura já
+  descrevia.
+- CORS removido (o navegador sempre fala com a mesma origem).
+- Segurança: o backend não monta mais o `docker.sock`; fala com o
+  `tecnativa/docker-socket-proxy`, que só libera `GET` em `/containers`.
+  Validado: `POST /containers/pihole/stop` via proxy → 403.
+- Nginx resolve `sentinel-backend` por request (`resolver 127.0.0.11`), então
+  recriar o backend não quebra mais o proxy do frontend.
+- Frontend: composable `usePolling` (`useContainers`, `useHealth`), que não
+  empilha requests se o backend demorar e mantém a última tabela boa
+  quando um poll falha.
+- CI fixado em Rust 1.80, a mesma versão do `Dockerfile`, e com `--locked`.
+- `docker-compose.snippet.yml` virou o `docker-compose.yml` da raiz, que
+  roda sozinho. Docs atualizados com o servidor real (`192.168.15.108`,
+  stacks em `~/docker/`, sem `~/homelab`).
+- **Validado no homelab:** a stack subiu com `docker compose up -d --build`;
+  `/api/containers` lista os 4 containers do servidor com CPU% e memória
+  batendo com o `docker stats`; boot com o proxy atrasado testado. Isso
+  fecha a pendência da Fase 1.
+- **Pendência:** o acesso de outra máquina da LAN foi testado só pelo IP
+  do próprio servidor (`curl http://192.168.15.108:8087`) — falta confirmar
+  num navegador de outra máquina. `ufw` não foi verificado (precisa de
+  `sudo`), mas portas publicadas pelo Docker passam por fora do `ufw`.
+
 <!-- Próxima entrada: Fase 2 — integração Pi-hole -->
