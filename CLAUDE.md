@@ -43,9 +43,9 @@ Mantenha o padrão ao criar referências novas.
 
 ## Estado atual
 
-- **Fase 0** (scaffold), **0.5** (Git + CI) e **1** (coletor Docker) feitas.
-- **Próxima: Fase 2 — integração com o Pi-hole** (cliente HTTP, endpoint
-  `GET /api/pihole/summary`, card no dashboard).
+- **Fase 0** (scaffold), **0.5** (Git + CI), **1** (coletor Docker) e
+  **2** (Pi-hole: `GET /api/pihole/summary` + card) feitas.
+- **Próxima: Fase 3 — background jobs + persistência histórica.**
 - Fase 1 mergeada na `main` (PRs #1–#3). Correções do coletor (CPU% real,
   stats em paralelo, ping no boot) e deploy via `docker-compose.yml` em
   `fix/coletor-docker-e-deploy` — ver `docs/03-Changelog.md`.
@@ -62,15 +62,18 @@ backend/
     state.rs     # AppState (Arc<AppStateInner>), clientes externos
     routes.rs    # handlers HTTP + AppError (IntoResponse)
     docker.rs    # coletor via bollard
+    pihole.rs    # cliente da API v6 do Pi-hole (sessão reaproveitada)
 frontend/
   src/
     main.ts            App.vue
     api.ts             # client HTTP tipado — espelha os tipos do backend
-    components/        # ContainerTable.vue
-    composables/       # usePolling (genérico), useContainers, useHealth
+    format.ts  style.css   # formatação pt-BR e tokens de tema (claro/escuro)
+    components/        # ContainerTable.vue, PiholeCard.vue
+    composables/       # usePolling (genérico), useContainers, useHealth, usePihole
   nginx.conf           # produção: serve o dist + proxy /api → sentinel-backend:8087
 docs/                  # vault Obsidian (ver acima)
 docker-compose.yml     # stack completa: docker-proxy + backend + frontend
+.env.example           # PIHOLE_PASSWORD — copiar para .env (fora do Git)
 .github/workflows/ci.yml
 ```
 
@@ -92,8 +95,10 @@ a densidade do código existente.
 - **Dependência externa indisponível nunca derruba o processo.** O padrão já
   estabelecido: `AppState.docker` é `Option<Docker>`; o boot faz `ping` (criar o
   cliente bollard não abre conexão nenhuma), se falha loga `warn!` e segue, e o
-  handler devolve `AppError::Unavailable` → **503**. Repita isso para Pi-hole,
-  Uptime Kuma e o que vier.
+  handler devolve `AppError::Unavailable` → **503**. Repita isso para Uptime
+  Kuma e o que vier. Exceção deliberada: o Pi-hole só é `None` sem config;
+  falha no boot não o desliga (o cliente reloga sozinho) e erro em runtime
+  vira **502** — ver `docs/01-Architecture.md`.
   Nada de `.unwrap()` em handler.
 - Logging com `tracing` (`info!`/`warn!`/`error!`), nunca `println!`.
 - Toda mudança de schema SQLite via `sqlx migrate` — nunca `ALTER TABLE` na mão.
@@ -194,3 +199,5 @@ Ao fechar uma fase:
 4. **Stats levam ~1-2s por container** (`one_shot: false`, necessário pra CPU%
    ser o uso atual). Por isso são buscados em paralelo (`STATS_CONCURRENCY`).
    Não volte pra `one_shot: true` pra "acelerar".
+5. **Não logar no Pi-hole a cada request.** A v6 limita sessões
+   simultâneas; o `PiholeClient` reaproveita o `sid` e só reloga em 401.

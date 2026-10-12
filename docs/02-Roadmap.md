@@ -1,7 +1,7 @@
 ---
 tags: [homelab, roadmap]
 status: em-andamento
-atualizado: 2026-07-30
+atualizado: 2026-10-12
 ---
 
 # Roadmap — Homelab Sentinel
@@ -31,10 +31,10 @@ só quando isso for verdade.
 - [x] Endpoint `GET /api/containers`
 - [x] `ContainerTable.vue`: tabela com auto-refresh (poll a cada 5s)
 
-## Fase 2 — Integração Pi-hole
-- [ ] Cliente HTTP para Pi-hole API (queries bloqueadas, top domínios)
-- [ ] Endpoint `GET /api/pihole/summary`
-- [ ] Card no dashboard com o resumo
+## Fase 2 — Integração Pi-hole ✅
+- [x] Cliente HTTP para Pi-hole API (queries bloqueadas, top domínios)
+- [x] Endpoint `GET /api/pihole/summary`
+- [x] Card no dashboard com o resumo
 
 ## Fase 3 — Background jobs + persistência histórica
 - [ ] Job periódico (tokio `interval`) que salva snapshots no SQLite

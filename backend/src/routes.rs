@@ -8,6 +8,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::docker::{self, ContainerInfo, DockerError};
+use crate::pihole::{PiholeError, PiholeSummary};
 use crate::state::AppState;
 
 /// Erro de qualquer handler. Cada variante decide seu status HTTP em
@@ -20,6 +21,8 @@ pub enum AppError {
     Unavailable(&'static str),
     #[error(transparent)]
     Docker(#[from] DockerError),
+    #[error(transparent)]
+    Pihole(#[from] PiholeError),
 }
 
 #[derive(Serialize)]
@@ -32,6 +35,8 @@ impl IntoResponse for AppError {
         let status = match &self {
             AppError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             AppError::Docker(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            // o erro é do serviço do outro lado, não deste backend
+            AppError::Pihole(_) => StatusCode::BAD_GATEWAY,
         };
         if status.is_server_error() {
             tracing::error!("{self}");
@@ -63,4 +68,16 @@ pub async fn list_containers(
         .ok_or(AppError::Unavailable("Docker daemon"))?;
 
     Ok(Json(docker::list_containers(client).await?))
+}
+
+pub async fn pihole_summary(
+    State(state): State<AppState>,
+) -> Result<Json<PiholeSummary>, AppError> {
+    let client = state
+        .inner
+        .pihole
+        .as_ref()
+        .ok_or(AppError::Unavailable("Pi-hole"))?;
+
+    Ok(Json(client.summary().await?))
 }

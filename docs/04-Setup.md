@@ -13,6 +13,9 @@ cd backend
 cargo run
 # escutando em http://localhost:8087
 ```
+Para o card do Pi-hole em dev, exporte antes `PIHOLE_URL`
+(ex: `http://192.168.15.108:8082`) e `PIHOLE_PASSWORD`. Sem elas o
+backend sobe normal e `/api/pihole/summary` devolve 503.
 
 **Frontend:**
 ```bash
@@ -29,13 +32,24 @@ O repo fica clonado em `/home/mr_robot/homelab-sentinel` e o
 backend + frontend) numa rede própria. O usuário `mr_robot` está no
 grupo `docker`, então não precisa de `sudo`.
 
+Na primeira vez, criar o `.env` (fica fora do Git) com a senha do
+Pi-hole — a mesma de `FTLCONF_webserver_api_password` em
+`~/docker/pihole/docker-compose.yml`:
+
+```bash
+cp .env.example .env && chmod 600 .env   # e preencher PIHOLE_PASSWORD
+```
+
 ```bash
 cd ~/homelab-sentinel
 git pull
 docker compose up -d --build
-docker compose logs -f sentinel-backend   # deve aparecer "conectado ao Docker daemon"
+docker compose logs -f sentinel-backend   # "conectado ao Docker daemon" e "conectado ao Pi-hole"
 ```
 
+O backend alcança o Pi-hole (outra stack, outra rede Docker) pela porta
+publicada no host: `host.docker.internal:8082`, via `extra_hosts:
+host-gateway`.
 
 Acesso de qualquer máquina da rede: `http://192.168.15.108:8087`.
 

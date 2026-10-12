@@ -14,6 +14,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bollard = "0.15"
 futures-util = "0.3"
 thiserror = "1"
+# sem default features: o Pi-hole é falado por HTTP na LAN, sem TLS — evita
+# puxar openssl/rustls pra imagem
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
 indexmap = "=2.2.6"
 time = "=0.3.36"
 idna_adapter = "=1.1.0"
