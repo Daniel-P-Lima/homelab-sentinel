@@ -35,6 +35,7 @@ qualquer suposição a partir do código:
 | `docs/02-Roadmap.md` | as fases — **é aqui que se decide o que fazer agora** |
 | `docs/03-Changelog.md` | histórico sessão a sessão, com as pendências reais |
 | `docs/04-Setup.md` | dev, build e deploy |
+| `docs/05-Fluxo-de-Desenvolvimento.md` | fluxo dev → CI → servidor, pontos de atenção e lacunas |
 
 Links entre docs usam sintaxe de wikilink do Obsidian (`[[01-Architecture]]`).
 Mantenha o padrão ao criar referências novas.

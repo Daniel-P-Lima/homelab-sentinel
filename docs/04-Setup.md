@@ -1,6 +1,6 @@
 ---
 tags: [homelab, setup]
-atualizado: 2026-10-07
+atualizado: 2026-10-14
 ---
 
 # Setup — Homelab Sentinel
@@ -14,8 +14,12 @@ cargo run
 # escutando em http://localhost:8087
 ```
 Para o card do Pi-hole em dev, exporte antes `PIHOLE_URL`
-(ex: `http://192.168.15.108:8082`) e `PIHOLE_PASSWORD`. Sem elas o
-backend sobe normal e `/api/pihole/summary` devolve 503.
+(ex: `http://localhost:8081` para o `pihole-dev`, ou
+`http://192.168.15.108:8082` para o real) e `PIHOLE_PASSWORD`. O
+`cargo run` **não lê o `.env`**: quem lê é só o `docker compose`. Sem
+as variáveis, o backend sobe normal e `/api/pihole/summary` devolve 503.
+Sintaxe para Windows, pontos de atenção e lacunas: ver
+[[05-Fluxo-de-Desenvolvimento]].
 
 **Frontend:**
 ```bash
