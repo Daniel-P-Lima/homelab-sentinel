@@ -12,6 +12,14 @@ export interface ContainerInfo {
   cpu_percent: number | null
   mem_usage_mb: number | null
   mem_limit_mb: number | null
+  ports: PortMapping[]
+}
+
+/** Espelha `PortMapping` em backend/src/docker.rs: só portas publicadas no host. */
+export interface PortMapping {
+  public_port: number
+  private_port: number
+  protocol: string
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {

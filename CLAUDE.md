@@ -46,9 +46,9 @@ Mantenha o padrão ao criar referências novas.
 - **Fase 0** (scaffold), **0.5** (Git + CI), **1** (coletor Docker) e
   **2** (Pi-hole: `GET /api/pihole/summary` + card) feitas.
 - **Próxima: Fase 3 — background jobs + persistência histórica.**
-- Fase 1 mergeada na `main` (PRs #1–#3). Correções do coletor (CPU% real,
-  stats em paralelo, ping no boot) e deploy via `docker-compose.yml` em
-  `fix/coletor-docker-e-deploy` — ver `docs/03-Changelog.md`.
+- Tudo isso está na `main`: Fase 1 (PRs #1–#3), correções do coletor + deploy
+  via `docker-compose.yml` (PR #4) e Fase 2 (PR #5), ambos mergeados em
+  2026-10-12 — detalhes em `docs/03-Changelog.md`.
 
 ---
 
