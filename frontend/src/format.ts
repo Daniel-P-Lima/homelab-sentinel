@@ -40,3 +40,23 @@ export function fmtRelative(unixSeconds: number): string {
 export function fmtMb(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`
 }
+
+export function fmtPercent(v: number | null): string {
+  return v === null ? '—' : `${v.toFixed(1)}%`
+}
+
+export function fmtMem(usage: number | null, limit: number | null): string {
+  if (usage === null) return '—'
+  return limit === null ? fmtMb(usage) : `${fmtMb(usage)} / ${fmtMb(limit)}`
+}
+
+export function memPercent(usage: number | null, limit: number | null): number | null {
+  return usage === null || !limit ? null : Math.min((usage / limit) * 100, 100)
+}
+
+/** Cor da pill de estado de um container (`running`, `exited`...). */
+export function stateClass(state: string): string {
+  if (state === 'running') return 'pill-ok'
+  if (state === 'exited' || state === 'dead') return 'pill-danger'
+  return 'pill-warn'
+}

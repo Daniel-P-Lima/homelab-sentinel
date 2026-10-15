@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { ContainerInfo } from '../api'
 import { usePihole } from '../composables/usePihole'
-import { fmtNumber, fmtRelative } from '../format'
-import { PIHOLE_WEB_PORT, hostAddress, serviceUrl } from '../links'
+import { fmtMem, fmtNumber, fmtPercent, fmtRelative, stateClass } from '../format'
+import { PIHOLE_SERVICE, directAddress, directUrl, httpsHost, httpsUrl } from '../services'
+
+defineProps<{
+  /** Vem do poll de containers do App.vue. undefined = ainda carregando; null = não existe. */
+  container: ContainerInfo | null | undefined
+}>()
 
 const { summary, error, loading } = usePihole()
 
-const adminUrl = serviceUrl(PIHOLE_WEB_PORT, '/admin/')
-const adminAddress = hostAddress(PIHOLE_WEB_PORT)
+const adminUrl = httpsUrl(PIHOLE_SERVICE)
+const adminAddress = httpsHost(PIHOLE_SERVICE)
 
 const blockingLabel = computed(() => {
   switch (summary.value?.blocking) {
@@ -31,7 +37,24 @@ const topMax = computed(() => Math.max(1, ...(summary.value?.top_blocked.map((d)
     <header class="card-header">
       <div>
         <h2>🛡️ Pi-hole</h2>
-        <a class="service-link" :href="adminUrl" target="_blank" rel="noopener">{{ adminAddress }} ↗</a>
+        <div class="links">
+          <a class="service-link" :href="adminUrl" target="_blank" rel="noopener noreferrer">{{ adminAddress }} ↗</a>
+          <a
+            class="service-link muted"
+            :href="directUrl(PIHOLE_SERVICE)"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Acesso direto, sem o Caddy"
+            >direto: {{ directAddress(PIHOLE_SERVICE) }}</a
+          >
+        </div>
+        <p v-if="container !== undefined" class="container-line">
+          <template v-if="container">
+            <span class="state" :class="stateClass(container.state)">{{ container.status || container.state }}</span>
+            · CPU {{ fmtPercent(container.cpu_percent) }} · {{ fmtMem(container.mem_usage_mb, null) }}
+          </template>
+          <span v-else class="state pill-danger">container não encontrado</span>
+        </p>
       </div>
       <span v-if="summary" class="pill" :class="blockingLabel.cls">{{ blockingLabel.text }}</span>
     </header>
@@ -90,6 +113,22 @@ const topMax = computed(() => Math.max(1, ...(summary.value?.top_blocked.map((d)
 </template>
 
 <style scoped>
+.container-line {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* só a cor da pill de estado, sem o fundo */
+.state {
+  background: none;
+  font-weight: 500;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+}
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

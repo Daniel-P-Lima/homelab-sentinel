@@ -2,7 +2,7 @@
 
 Instruções para o Claude Code neste repositório. O repo fica em
 `/home/mr_robot/homelab-sentinel` no servidor (`192.168.15.108`); as outras
-stacks do homelab ficam em `/home/mr_robot/docker/<stack>/` (pihole, media).
+stacks do homelab ficam em `/home/mr_robot/docker/<stack>/` (pihole, media, caddy).
 
 ---
 
@@ -68,8 +68,10 @@ frontend/
   src/
     main.ts            App.vue
     api.ts             # client HTTP tipado — espelha os tipos do backend
+    services.ts        # serviços fixos (cards): container, subdomínio HTTPS, porta
+    links.ts           # endereço direto host:porta
     format.ts  style.css   # formatação pt-BR e tokens de tema (claro/escuro)
-    components/        # ContainerTable.vue, PiholeCard.vue
+    components/        # ServiceCard.vue, ContainerTable.vue, PiholeCard.vue
     composables/       # usePolling (genérico), useContainers, useHealth, usePihole
   nginx.conf           # produção: serve o dist + proxy /api → sentinel-backend:8087
 docs/                  # vault Obsidian (ver acima)

@@ -159,4 +159,32 @@ tags: [homelab, changelog]
   - O fluxo do Windows (sintaxe PowerShell, fim de linha) foi escrito sem
     testar numa máquina Windows.
 
+## 2026-10-15 — Cards dos serviços e endereços HTTPS
+- Os serviços fixos do homelab (Jellyfin, qBittorrent, File Browser e
+  Cockpit) ganharam um card cada no topo: estado, CPU, memória, link
+  HTTPS pelo Caddy (`https://<serviço>.fsocietyserver.duckdns.org`) e o
+  `ip:porta` direto como reserva para quando o Caddy cair. O Cockpit não é
+  container, então o card dele só tem os links.
+- A lista fica em `frontend/src/services.ts` (container ↔ subdomínio ↔
+  porta). Container fora dela vai para a tabela, agora "Outros containers".
+- `useContainers()` passou a ser chamado uma vez só, no `App.vue`, que
+  repassa os dados por props aos cards e à tabela: dois polls dobrariam as
+  chamadas de stats, que custam ~1-2s cada no daemon.
+- O Pi-hole não ganhou card pequeno (repetiria o card de estatísticas): o
+  card grande passou a ter o link HTTPS, o acesso direto e uma linha
+  pequena com estado, CPU e memória do container (que sai da tabela).
+- Links para os serviços com `rel="noopener noreferrer"`: o qBittorrent
+  respondia 401 "Unauthorized" ao clique, porque a proteção CSRF dele recusa
+  `Referer` de outra origem (reproduzido com `curl -H Referer`).
+- Favicon (`frontend/public/favicon.svg`): escudo com linha de pulso.
+- Sem mudança no backend. `vue-tsc -b` e `npm run build` rodados num
+  container `node:22-slim`; frontend redeployado no homelab e conferido pelo
+  bundle servido.
+- **Pendências:**
+  - Não foi aberto num navegador: falta ver o layout no desktop e no
+    celular, claro e escuro.
+  - Os links HTTPS só abrem com o Tailscale ligado (o DuckDNS aponta pro IP
+    100.x). Na LAN sem Tailscale, só o acesso direto funciona.
+  - O domínio está fixo em `services.ts`; trocar de domínio exige rebuild.
+
 <!-- Próxima entrada: Fase 3 — background jobs + persistência histórica -->

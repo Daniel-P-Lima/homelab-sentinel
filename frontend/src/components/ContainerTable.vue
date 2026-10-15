@@ -1,37 +1,25 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useContainers } from '../composables/useContainers'
-import { fmtMb } from '../format'
+import type { ContainerInfo } from '../api'
+import { fmtMem, fmtPercent, memPercent, stateClass } from '../format'
 import { hostAddress, serviceUrl } from '../links'
 
-const { containers, error, loading } = useContainers()
+// Recebe os dados do App.vue em vez de fazer o próprio poll: os cards de
+// serviço usam a mesma resposta (ver useContainers).
+const props = defineProps<{
+  /** Só os containers sem card próprio. */
+  containers: ContainerInfo[] | null
+  error: string | null
+  loading: boolean
+}>()
 
-const runningCount = computed(() => containers.value?.filter((c) => c.state === 'running').length ?? 0)
-
-function stateClass(state: string): string {
-  if (state === 'running') return 'pill-ok'
-  if (state === 'exited' || state === 'dead') return 'pill-danger'
-  return 'pill-warn'
-}
-
-function fmtPercent(v: number | null): string {
-  return v === null ? '—' : `${v.toFixed(1)}%`
-}
-
-function fmtMem(usage: number | null, limit: number | null): string {
-  if (usage === null) return '—'
-  return limit === null ? fmtMb(usage) : `${fmtMb(usage)} / ${fmtMb(limit)}`
-}
-
-function memPercent(usage: number | null, limit: number | null): number | null {
-  return usage === null || !limit ? null : Math.min((usage / limit) * 100, 100)
-}
+const runningCount = computed(() => props.containers?.filter((c) => c.state === 'running').length ?? 0)
 </script>
 
 <template>
   <section class="card">
     <header class="card-header">
-      <h2>🐳 Containers</h2>
+      <h2>🐳 Outros containers</h2>
       <span v-if="containers" class="pill" :class="runningCount === containers.length ? 'pill-ok' : 'pill-warn'">
         {{ runningCount }} de {{ containers.length }} rodando
       </span>
@@ -40,7 +28,7 @@ function memPercent(usage: number | null, limit: number | null): number | null {
     <!-- erro aparece junto com a última tabela boa, não no lugar dela -->
     <p v-if="error" class="notice notice-danger">Não foi possível atualizar os containers: {{ error }}</p>
     <p v-if="loading" class="muted">Carregando containers... (a primeira leitura de CPU leva ~2s)</p>
-    <p v-else-if="containers && containers.length === 0" class="muted">Nenhum container encontrado.</p>
+    <p v-else-if="containers && containers.length === 0" class="muted">Nenhum container além dos serviços acima.</p>
 
     <div v-else-if="containers" class="table-wrap">
       <table>
@@ -79,7 +67,7 @@ function memPercent(usage: number | null, limit: number | null): number | null {
                     class="service-link"
                     :href="serviceUrl(p.public_port)"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                     :title="`porta ${p.private_port} do container`"
                     >{{ hostAddress(p.public_port) }}</a
                   >
