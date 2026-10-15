@@ -1,54 +1,63 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ContainerInfo } from '../api'
-import { fmtMem, fmtPercent, memPercent, stateClass } from '../format'
+import { fmtContainerStatus, fmtMem, fmtPercent, memPercent } from '../format'
+import { containerLed, ledClass } from '../leds'
 import { hostAddress, serviceUrl } from '../links'
 
-// Recebe os dados do App.vue em vez de fazer o próprio poll: os cards de
+// Recebe os dados do App.vue em vez de fazer o próprio poll: os canais de
 // serviço usam a mesma resposta (ver useContainers).
 const props = defineProps<{
-  /** Só os containers sem card próprio. */
+  /** Só os containers sem canal próprio. */
   containers: ContainerInfo[] | null
   error: string | null
   loading: boolean
 }>()
 
+// Imagem recriada por `compose up --build` perde a tag e o Docker mostra o hash.
+function fmtImage(image: string): string {
+  return image.startsWith('sha256:') ? 'imagem local, sem tag' : image
+}
+
 const runningCount = computed(() => props.containers?.filter((c) => c.state === 'running').length ?? 0)
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-header">
-      <h2>🐳 Outros containers</h2>
-      <span v-if="containers" class="pill" :class="runningCount === containers.length ? 'pill-ok' : 'pill-warn'">
-        {{ runningCount }} de {{ containers.length }} rodando
-      </span>
+  <section class="display containers" aria-labelledby="containers-title">
+    <header class="section-title">
+      <h2 id="containers-title">Outros containers</h2>
+      <span v-if="containers" class="muted">{{ runningCount }} de {{ containers.length }} no ar</span>
     </header>
 
     <!-- erro aparece junto com a última tabela boa, não no lugar dela -->
-    <p v-if="error" class="notice notice-danger">Não foi possível atualizar os containers: {{ error }}</p>
-    <p v-if="loading" class="muted">Carregando containers... (a primeira leitura de CPU leva ~2s)</p>
-    <p v-else-if="containers && containers.length === 0" class="muted">Nenhum container além dos serviços acima.</p>
+    <p v-if="error" class="notice notice-danger">Sem resposta do Docker: {{ error }}</p>
+    <p v-if="loading" class="muted">Lendo os containers. A primeira leitura de CPU leva uns 2 segundos.</p>
+    <p v-else-if="containers && containers.length === 0" class="muted">
+      Todos os containers já aparecem nos canais acima.
+    </p>
 
     <div v-else-if="containers" class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Container</th>
-            <th>Estado</th>
-            <th class="num">CPU</th>
-            <th>Memória</th>
-            <th>Acesso</th>
+            <th scope="col">Container</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="num">CPU</th>
+            <th scope="col">Memória</th>
+            <th scope="col">Portas</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="c in containers" :key="c.id">
             <td>
               <div class="name">{{ c.name }}</div>
-              <div class="image" :title="c.image">{{ c.image }}</div>
+              <div class="image muted" :title="c.image">{{ fmtImage(c.image) }}</div>
             </td>
             <td>
-              <span class="pill" :class="stateClass(c.state)">{{ c.status || c.state }}</span>
+              <span class="state">
+                <span class="led" :class="ledClass(containerLed(c.state, c.status))" />
+                {{ fmtContainerStatus(c.state, c.status) }}
+              </span>
             </td>
             <td class="num">{{ fmtPercent(c.cpu_percent) }}</td>
             <td class="mem">
@@ -58,24 +67,24 @@ const runningCount = computed(() => props.containers?.filter((c) => c.state === 
               </div>
             </td>
             <td>
-              <span v-if="c.ports.length === 0" class="muted">—</span>
-              <div v-else class="ports">
-                <template v-for="p in c.ports" :key="`${p.public_port}/${p.protocol}`">
+              <span v-if="c.ports.length === 0" class="muted" title="Nenhuma porta publicada no servidor">—</span>
+              <ul v-else class="ports">
+                <li v-for="p in c.ports" :key="`${p.public_port}/${p.protocol}`">
                   <!-- só TCP vira link; UDP (ex: DNS na 53) o navegador não abre -->
                   <a
                     v-if="p.protocol === 'tcp'"
-                    class="service-link"
+                    class="link-quiet"
                     :href="serviceUrl(p.public_port)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :title="`porta ${p.private_port} do container`"
+                    :title="`Porta ${p.private_port} dentro do container`"
                     >{{ hostAddress(p.public_port) }}</a
                   >
-                  <span v-else class="muted port-other" :title="`porta ${p.private_port} do container`">
+                  <span v-else class="muted" :title="`Porta ${p.private_port} dentro do container`">
                     {{ p.public_port }}/{{ p.protocol }}
                   </span>
-                </template>
-              </div>
+                </li>
+              </ul>
             </td>
           </tr>
         </tbody>
@@ -85,10 +94,13 @@ const runningCount = computed(() => props.containers?.filter((c) => c.state === 
 </template>
 
 <style scoped>
+.containers {
+  padding: 1.2rem 1.3rem;
+}
 /* em tela estreita a tabela rola sozinha em vez de estourar a página */
 .table-wrap {
   overflow-x: auto;
-  margin: 0 -0.25rem;
+  margin: 0 -0.4rem;
 }
 table {
   width: 100%;
@@ -96,28 +108,22 @@ table {
 }
 th,
 td {
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid var(--rule);
   text-align: left;
-  padding: 0.65rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.88rem;
-  vertical-align: middle;
+  vertical-align: top;
+  font-size: 0.95rem;
 }
 tbody tr:last-child td {
   border-bottom: none;
 }
-tbody tr:hover {
-  background: var(--surface-2);
-}
 th {
-  font-size: 0.75rem;
+  color: var(--engraved);
+  font-size: 0.85rem;
   font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 .num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .name {
   font-weight: 600;
@@ -127,25 +133,26 @@ th {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-muted);
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
+}
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
 }
 .mem {
   min-width: 9rem;
-  font-variant-numeric: tabular-nums;
-}
-.ports {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-.port-other {
-  font-family: ui-monospace, monospace;
-  font-size: 0.78rem;
-  white-space: nowrap;
 }
 .mem .bar {
-  margin-top: 0.3rem;
+  margin-top: 0.35rem;
+}
+.ports {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
 }
 </style>

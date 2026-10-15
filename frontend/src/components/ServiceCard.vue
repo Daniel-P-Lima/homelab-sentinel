@@ -1,36 +1,37 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ContainerInfo } from '../api'
-import { fmtMem, fmtPercent, memPercent, stateClass } from '../format'
+import { fmtContainerStatus, fmtMb, fmtPercent } from '../format'
+import { containerLed, ledClass, type Led } from '../leds'
 import { directAddress, directUrl, httpsHost, httpsUrl, type Service } from '../services'
 
+// Um canal do rack de serviços. As divisórias entre canais ficam no App.vue.
 const props = defineProps<{
   service: Service
   /** undefined = o poll ainda não respondeu; null = container não existe no Docker */
   container: ContainerInfo | null | undefined
 }>()
 
-const status = computed(() => {
-  if (!props.service.container) return { text: 'Fora do Docker', cls: '' }
-  if (props.container === undefined) return { text: 'Carregando...', cls: '' }
-  if (props.container === null) return { text: 'Container não encontrado', cls: 'pill-danger' }
-  return { text: props.container.status || props.container.state, cls: stateClass(props.container.state) }
+const status = computed<{ text: string; led: Led['state'] }>(() => {
+  if (!props.service.container) return { text: 'Fora do Docker', led: 'off' }
+  if (props.container === undefined) return { text: 'Lendo...', led: 'off' }
+  if (props.container === null) return { text: 'Container não encontrado', led: 'alert' }
+  const c = props.container
+  return { text: fmtContainerStatus(c.state, c.status), led: containerLed(c.state, c.status) }
 })
-
-const mem = computed(() => (props.container ? memPercent(props.container.mem_usage_mb, props.container.mem_limit_mb) : null))
 </script>
 
 <template>
-  <section class="card service">
-    <header class="service-header">
-      <span class="icon" aria-hidden="true">{{ service.icon }}</span>
-      <div class="title">
-        <h2>{{ service.name }}</h2>
-        <span class="muted desc">{{ service.description }}</span>
-      </div>
+  <article class="channel">
+    <header>
+      <h3>
+        <span class="led" :class="ledClass(status.led)" />
+        {{ service.name }}
+      </h3>
+      <p class="muted desc">{{ service.description }}</p>
     </header>
 
-    <span class="pill" :class="status.cls" :title="status.text">{{ status.text }}</span>
+    <p class="status">{{ status.text }}</p>
 
     <dl v-if="container" class="metrics">
       <div>
@@ -39,105 +40,71 @@ const mem = computed(() => (props.container ? memPercent(props.container.mem_usa
       </div>
       <div>
         <dt>Memória</dt>
-        <dd>{{ fmtMem(container.mem_usage_mb, null) }}</dd>
-        <div v-if="mem !== null" class="bar" :title="`${mem.toFixed(0)}% do limite`">
-          <span :style="{ width: `${mem}%` }" />
-        </div>
+        <dd>{{ container.mem_usage_mb === null ? '—' : fmtMb(container.mem_usage_mb) }}</dd>
       </div>
     </dl>
 
     <!-- noreferrer é obrigatório: o qBittorrent (proteção CSRF) responde
          401 "Unauthorized" a qualquer Referer de outra origem, como o do dashboard -->
-    <div class="links">
-      <a class="open" :href="httpsUrl(service)" target="_blank" rel="noopener noreferrer" :title="httpsUrl(service)">
-        {{ httpsHost(service) }} ↗
+    <footer class="actions">
+      <a class="key" :href="httpsUrl(service)" target="_blank" rel="noopener noreferrer" :title="httpsHost(service)">
+        Abrir {{ service.name }}
       </a>
-      <a class="service-link direct" :href="directUrl(service)" target="_blank" rel="noopener noreferrer" title="Acesso direto, sem o Caddy">
-        direto: {{ directAddress(service) }}
-      </a>
-    </div>
-  </section>
+      <a
+        class="link-quiet"
+        :href="directUrl(service)"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Acesso direto pela porta, sem passar pelo Caddy"
+        >Direto: {{ directAddress(service) }}</a
+      >
+    </footer>
+  </article>
 </template>
 
 <style scoped>
-.service {
+.channel {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 1.1rem 1.25rem 1.2rem;
 }
-.service-header {
+h3 {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
-  width: 100%;
-}
-.icon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-.title {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  gap: 0.55rem;
+  font-size: 1.2rem;
 }
 .desc {
-  font-size: 0.78rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
 }
-.pill {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.status {
+  margin: 0;
+  font-size: 0.95rem;
 }
 .metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  width: 100%;
+  display: flex;
+  gap: 1.5rem;
   margin: 0;
 }
 dt {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  color: var(--engraved);
+  font-size: 0.8rem;
 }
 dd {
-  margin: 0.1rem 0 0.3rem;
-  font-size: 0.95rem;
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
-/* empurra os links pro rodapé, alinhando cards de alturas diferentes */
-.links {
+/* empurra as ações pro rodapé, alinhando canais de alturas diferentes */
+.actions {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  width: 100%;
+  align-items: flex-start;
+  gap: 0.45rem;
   margin-top: auto;
-}
-.open {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0.45rem 0.65rem;
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--accent);
-  font-size: 0.82rem;
-  font-weight: 500;
-  text-decoration: none;
-}
-.open:hover {
-  text-decoration: underline;
-}
-.direct {
-  color: var(--text-muted);
-  font-size: 0.72rem;
+  padding-top: 0.3rem;
 }
 </style>

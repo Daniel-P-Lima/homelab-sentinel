@@ -7,14 +7,16 @@
 
 import { hostAddress, serviceUrl } from './links'
 
+/** Hostname do servidor, gravado no painel do dashboard. */
+export const SERVER_NAME = 'fsocietyserver'
+
 /** Domínio do coringa `*.fsocietyserver.duckdns.org` no Caddyfile. */
-export const SERVICES_DOMAIN = 'fsocietyserver.duckdns.org'
+export const SERVICES_DOMAIN = `${SERVER_NAME}.duckdns.org`
 
 export interface Service {
   /** Nome do container no Docker. Sem ele, o serviço roda fora do Docker e o card só tem os links. */
   container?: string
   name: string
-  icon: string
   description: string
   /** Subdomínio no Caddy: `jellyfin` → https://jellyfin.fsocietyserver.duckdns.org */
   subdomain: string
@@ -29,7 +31,6 @@ export interface Service {
 export const PIHOLE_SERVICE: Service = {
   container: 'pihole',
   name: 'Pi-hole',
-  icon: '🛡️',
   description: 'DNS e bloqueio de anúncios',
   subdomain: 'pihole',
   path: '/admin/',
@@ -40,7 +41,6 @@ export const SERVICES: Service[] = [
   {
     container: 'jellyfin',
     name: 'Jellyfin',
-    icon: '🎬',
     description: 'Filmes e séries',
     subdomain: 'jellyfin',
     port: 8096,
@@ -48,7 +48,6 @@ export const SERVICES: Service[] = [
   {
     container: 'qbittorrent',
     name: 'qBittorrent',
-    icon: '⬇️',
     description: 'Downloads',
     subdomain: 'qbit',
     port: 8081,
@@ -56,14 +55,12 @@ export const SERVICES: Service[] = [
   {
     container: 'filebrowser',
     name: 'File Browser',
-    icon: '📁',
     description: 'Arquivos do servidor',
     subdomain: 'files',
     port: 8080,
   },
   {
     name: 'Cockpit',
-    icon: '🖥️',
     description: 'Administração do servidor',
     subdomain: 'cockpit',
     port: 9090,

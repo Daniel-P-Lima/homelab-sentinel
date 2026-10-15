@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bollard::Docker;
 
+use crate::host::HostCollector;
 use crate::pihole::PiholeClient;
 
 /// Estado compartilhado entre handlers.
@@ -18,6 +19,8 @@ pub struct AppStateInner {
     pub docker: Option<Docker>,
     /// None só quando `PIHOLE_URL`/`PIHOLE_PASSWORD` não estão configurados.
     pub pihole: Option<PiholeClient>,
+    /// None fora do Linux (sem `/proc`), ex: `cargo run` no Mac.
+    pub host: Option<HostCollector>,
 }
 
 impl AppState {
@@ -48,11 +51,21 @@ impl AppState {
             ),
         }
 
+        let host = HostCollector::from_env();
+        match &host {
+            Some(h) => match h.disk_path() {
+                Some(path) => tracing::info!("métricas do servidor ativas, disco lido em {}", path.display()),
+                None => tracing::warn!("HOST_DISK_PATH não configurado: o card do servidor fica sem disco."),
+            },
+            None => tracing::warn!("sem /proc (não é Linux). Endpoint /api/host vai retornar 503."),
+        }
+
         Self {
             inner: Arc::new(AppStateInner {
                 started_at: std::time::Instant::now(),
                 docker,
                 pihole,
+                host,
             }),
         }
     }

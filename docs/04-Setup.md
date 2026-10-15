@@ -18,6 +18,9 @@ Para o card do Pi-hole em dev, exporte antes `PIHOLE_URL`
 `http://192.168.15.108:8082` para o real) e `PIHOLE_PASSWORD`. O
 `cargo run` **não lê o `.env`**: quem lê é só o `docker compose`. Sem
 as variáveis, o backend sobe normal e `/api/pihole/summary` devolve 503.
+O card do servidor (`/api/host`) só funciona em Linux, porque lê `/proc` e `/sys`. No
+Mac ele devolve 503. Para ter o disco, exporte `HOST_DISK_PATH` com
+qualquer caminho do disco a medir (ex: `/`).
 Sintaxe para Windows, pontos de atenção e lacunas: ver
 [[05-Fluxo-de-Desenvolvimento]].
 

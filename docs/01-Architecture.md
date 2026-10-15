@@ -107,6 +107,14 @@ homelab-sentinel/
   restart. `None` (→ 503) só quando não há `PIHOLE_URL`/`PIHOLE_PASSWORD`;
   falha falando com o Pi-hole → **502** (`AppError::Pihole`), porque o
   erro é do serviço do outro lado.
+- **Métricas do servidor sem container privilegiado** (`host.rs`):
+  `/proc/stat`, `/proc/meminfo`, `/proc/uptime` e `/proc/loadavg` não são
+  isolados por namespace, então o container já lê os números do host; o
+  `/sys` (temperatura, bateria) vem montado só-leitura pelo Docker. Só o
+  disco exige montar um caminho do host (`~/media` → `/host/disk:ro`,
+  `HOST_DISK_PATH`), medido com `statvfs` via crate `libc` — a std não o
+  expõe. CPU% são duas leituras do `/proc/stat` com 500ms entre elas, por
+  request; na Fase 3 isso passa para o job em background.
 - **Sentinel → Pi-hole pelo host**, não por rede Docker compartilhada:
   `host.docker.internal:8082` (`extra_hosts: host-gateway`). As stacks
   continuam independentes; o custo é depender da porta publicada.

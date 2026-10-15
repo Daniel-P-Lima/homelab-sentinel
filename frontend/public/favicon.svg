@@ -1,13 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4f7ff0"/>
-      <stop offset="1" stop-color="#2a4fb8"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <!-- escudo -->
-  <path d="M32 10 49 16v14c0 11-7.3 19.4-17 23-9.7-3.6-17-12-17-23V16z" fill="#fff" fill-opacity=".16" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
-  <!-- linha de pulso -->
-  <path d="M21 33h6l3-7 4 13 3-6h6" fill="none" stroke="#4ccb84" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="12" fill="#2b3035"/>
+  <!-- mostrador do medidor, como no painel do servidor -->
+  <rect x="7" y="12" width="50" height="38" rx="5" fill="#eef0f2"/>
+  <path d="M14.5 38.5A20 20 0 0 1 43 24.7" fill="none" stroke="#1f2429" stroke-width="2.5"/>
+  <path d="M43 24.7A20 20 0 0 1 49.5 38.5" fill="none" stroke="#c8312b" stroke-width="4"/>
+  <line x1="32" y1="45" x2="42" y2="22" stroke="#c8312b" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="45" r="3.5" fill="#1f2429"/>
+  <!-- LED de energia -->
+  <circle cx="13" cy="56" r="2.6" fill="#3ad06a"/>
 </svg>
