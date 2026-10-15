@@ -142,3 +142,21 @@ tags: [homelab, changelog]
   `/admin/` no card do Pi-hole. O IP é o `window.location.hostname` — o
   mesmo pelo qual o dashboard foi aberto —, sem IP fixo no código
   (`src/links.ts`). A porta do Pi-hole (8082) fica fixa lá. 
+
+
+## 2026-10-14 — Docs: fluxo de desenvolvimento
+- Novo [[05-Fluxo-de-Desenvolvimento]]: dev local (`cargo run` +
+  `npm run dev` no Mac/Windows) → checks do CI → PR → deploy com
+  `docker compose` no servidor, com boas práticas e lacunas conhecidas.
+- Origem: um `cargo run` no Mac logou `PIHOLE_URL/PIHOLE_PASSWORD não
+  configurados` e o card deu 503. Causa: o backend não lê o `.env`
+  (quem lê é só o compose) e o `PIHOLE_URL` existe apenas no
+  `docker-compose.yml`. [[04-Setup]] agora diz isso explicitamente.
+- Só documentação: nenhuma das lacunas listadas foi corrigida.
+- **Pendências:**
+  - Decidir as lacunas uma a uma (a mais relevante é o toolchain Rust sem
+    pin: 1.93.1 no Mac contra 1.80 no CI/Dockerfile).
+  - O fluxo do Windows (sintaxe PowerShell, fim de linha) foi escrito sem
+    testar numa máquina Windows.
+
+<!-- Próxima entrada: Fase 3 — background jobs + persistência histórica -->
