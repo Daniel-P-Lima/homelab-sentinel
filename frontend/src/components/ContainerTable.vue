@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useContainers } from '../composables/useContainers'
 import { fmtMb } from '../format'
+import { hostAddress, serviceUrl } from '../links'
 
 const { containers, error, loading } = useContainers()
 
@@ -49,6 +50,7 @@ function memPercent(usage: number | null, limit: number | null): number | null {
             <th>Estado</th>
             <th class="num">CPU</th>
             <th>Memória</th>
+            <th>Acesso</th>
           </tr>
         </thead>
         <tbody>
@@ -65,6 +67,26 @@ function memPercent(usage: number | null, limit: number | null): number | null {
               <span>{{ fmtMem(c.mem_usage_mb, c.mem_limit_mb) }}</span>
               <div v-if="memPercent(c.mem_usage_mb, c.mem_limit_mb) !== null" class="bar">
                 <span :style="{ width: `${memPercent(c.mem_usage_mb, c.mem_limit_mb)}%` }" />
+              </div>
+            </td>
+            <td>
+              <span v-if="c.ports.length === 0" class="muted">—</span>
+              <div v-else class="ports">
+                <template v-for="p in c.ports" :key="`${p.public_port}/${p.protocol}`">
+                  <!-- só TCP vira link; UDP (ex: DNS na 53) o navegador não abre -->
+                  <a
+                    v-if="p.protocol === 'tcp'"
+                    class="service-link"
+                    :href="serviceUrl(p.public_port)"
+                    target="_blank"
+                    rel="noopener"
+                    :title="`porta ${p.private_port} do container`"
+                    >{{ hostAddress(p.public_port) }}</a
+                  >
+                  <span v-else class="muted port-other" :title="`porta ${p.private_port} do container`">
+                    {{ p.public_port }}/{{ p.protocol }}
+                  </span>
+                </template>
               </div>
             </td>
           </tr>
@@ -124,6 +146,16 @@ th {
 .mem {
   min-width: 9rem;
   font-variant-numeric: tabular-nums;
+}
+.ports {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.port-other {
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 .mem .bar {
   margin-top: 0.3rem;

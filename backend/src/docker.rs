@@ -1,4 +1,5 @@
 use bollard::container::{ListContainersOptions, MemoryStatsStats, Stats, StatsOptions};
+use bollard::models::Port;
 use bollard::Docker;
 use futures_util::stream::{self, StreamExt};
 use serde::Serialize;
@@ -33,6 +34,18 @@ pub struct ContainerInfo {
     pub cpu_percent: Option<f64>,
     pub mem_usage_mb: Option<f64>,
     pub mem_limit_mb: Option<f64>,
+    /// Portas publicadas no host, ordenadas e sem duplicatas
+    pub ports: Vec<PortMapping>,
+}
+
+/// Uma porta publicada (`-p host:container`). Porta só exposta na rede
+/// interna do Docker não entra: o navegador não chega nela.
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortMapping {
+    pub public_port: u16,
+    pub private_port: u16,
+    /// "tcp", "udp" ou "sctp"
+    pub protocol: String,
 }
 
 /// Conecta no Docker respeitando `DOCKER_HOST` (em produção aponta pro
@@ -91,6 +104,7 @@ pub async fn list_containers(docker: &Docker) -> Result<Vec<ContainerInfo>, Dock
             let image = c.image.unwrap_or_default();
             let state = c.state.unwrap_or_default();
             let status = c.status.unwrap_or_default();
+            let ports = published_ports(c.ports.unwrap_or_default());
 
             // Stats só fazem sentido pra containers rodando; puxar stats de um
             // container parado retorna erro/vazio no daemon.
@@ -116,6 +130,7 @@ pub async fn list_containers(docker: &Docker) -> Result<Vec<ContainerInfo>, Dock
                 cpu_percent,
                 mem_usage_mb,
                 mem_limit_mb,
+                ports,
             }
         })
         .buffer_unordered(STATS_CONCURRENCY)
@@ -211,6 +226,29 @@ fn cpu_percent(
     Some((cpu_delta / system_delta) * cpus * 100.0)
 }
 
+/// O Docker lista a mesma porta uma vez por família de IP (0.0.0.0 e ::),
+/// então "8082" viria repetida; aqui vira uma entrada só. Porta presa ao
+/// loopback do host também sai: de outra máquina da rede ela não abre.
+fn published_ports(ports: Vec<Port>) -> Vec<PortMapping> {
+    let mut result: Vec<PortMapping> = ports
+        .into_iter()
+        .filter(|p| !matches!(p.ip.as_deref(), Some("127.0.0.1") | Some("::1")))
+        .filter_map(|p| {
+            Some(PortMapping {
+                public_port: p.public_port?,
+                private_port: p.private_port,
+                protocol: p
+                    .typ
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "tcp".to_string()),
+            })
+        })
+        .collect();
+    result.sort();
+    result.dedup();
+    result
+}
+
 fn memory_used(usage: u64, inactive_file: Option<u64>) -> u64 {
     usage.saturating_sub(inactive_file.unwrap_or(0))
 }
@@ -222,6 +260,7 @@ fn bytes_to_mb(bytes: u64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bollard::models::PortTypeEnum;
 
     #[test]
     fn cpu_percent_usa_delta_entre_amostras() {
@@ -255,6 +294,39 @@ mod tests {
         assert_eq!(memory_used(1_000, None), 1_000);
         // nunca dá underflow se o daemon devolver algo inconsistente
         assert_eq!(memory_used(100, Some(300)), 0);
+    }
+
+    fn port(ip: &str, public_port: Option<u16>, private_port: u16, typ: PortTypeEnum) -> Port {
+        Port {
+            ip: Some(ip.to_string()),
+            private_port,
+            public_port,
+            typ: Some(typ),
+        }
+    }
+
+    fn mapping(public_port: u16, private_port: u16, protocol: &str) -> PortMapping {
+        PortMapping {
+            public_port,
+            private_port,
+            protocol: protocol.to_string(),
+        }
+    }
+
+    #[test]
+    fn portas_publicadas_sem_duplicata_loopback_nem_internas() {
+        let ports = vec![
+            port("::", Some(8082), 80, PortTypeEnum::TCP),
+            port("0.0.0.0", Some(8082), 80, PortTypeEnum::TCP),
+            port("0.0.0.0", Some(53), 53, PortTypeEnum::UDP),
+            port("127.0.0.1", Some(9000), 9000, PortTypeEnum::TCP),
+            // só EXPOSE, sem -p: não tem porta no host
+            port("", None, 443, PortTypeEnum::TCP),
+        ];
+        assert_eq!(
+            published_ports(ports),
+            vec![mapping(53, 53, "udp"), mapping(8082, 80, "tcp")]
+        );
     }
 
     #[test]

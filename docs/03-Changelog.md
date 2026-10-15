@@ -131,6 +131,19 @@ tags: [homelab, changelog]
   - O Pi-hole ainda está com a senha placeholder `TROQUE_ESTA_SENHA`.
     Ao trocar, atualizar também o `.env` do Sentinel e recriar o backend.
 
+## 2026-10-12 — Endereços de acesso no dashboard
+- Backend: `ContainerInfo` ganhou `ports` (portas publicadas no host, vindas
+  do próprio `list_containers` — nenhuma chamada nova ao Docker, então o
+  docker-proxy não precisa de permissão extra). `published_ports()` tira a
+  duplicata IPv4/IPv6, as portas presas ao loopback e as só expostas
+  internamente; 1 teste novo.
+- Frontend: coluna "Acesso" na tabela de containers (porta TCP vira link
+  `ip:porta`; UDP aparece como texto, ex: `53/udp`) e link para
+  `/admin/` no card do Pi-hole. O IP é o `window.location.hostname` — o
+  mesmo pelo qual o dashboard foi aberto —, sem IP fixo no código
+  (`src/links.ts`). A porta do Pi-hole (8082) fica fixa lá. 
+
+
 ## 2026-10-14 — Docs: fluxo de desenvolvimento
 - Novo [[05-Fluxo-de-Desenvolvimento]]: dev local (`cargo run` +
   `npm run dev` no Mac/Windows) → checks do CI → PR → deploy com

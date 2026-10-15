@@ -2,8 +2,12 @@
 import { computed } from 'vue'
 import { usePihole } from '../composables/usePihole'
 import { fmtNumber, fmtRelative } from '../format'
+import { PIHOLE_WEB_PORT, hostAddress, serviceUrl } from '../links'
 
 const { summary, error, loading } = usePihole()
+
+const adminUrl = serviceUrl(PIHOLE_WEB_PORT, '/admin/')
+const adminAddress = hostAddress(PIHOLE_WEB_PORT)
 
 const blockingLabel = computed(() => {
   switch (summary.value?.blocking) {
@@ -25,7 +29,10 @@ const topMax = computed(() => Math.max(1, ...(summary.value?.top_blocked.map((d)
 <template>
   <section class="card">
     <header class="card-header">
-      <h2>🛡️ Pi-hole</h2>
+      <div>
+        <h2>🛡️ Pi-hole</h2>
+        <a class="service-link" :href="adminUrl" target="_blank" rel="noopener">{{ adminAddress }} ↗</a>
+      </div>
       <span v-if="summary" class="pill" :class="blockingLabel.cls">{{ blockingLabel.text }}</span>
     </header>
 

@@ -73,6 +73,18 @@ body {
   font-weight: 600;
 }
 
+/* endereço ip:porta de um serviço, clicável */
+.service-link {
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.service-link:hover {
+  text-decoration: underline;
+}
+
 .muted {
   color: var(--text-muted);
 }
