@@ -2,7 +2,7 @@
 
 Instruções para o Claude Code neste repositório. O repo fica em
 `/home/mr_robot/homelab-sentinel` no servidor (`192.168.15.108`); as outras
-stacks do homelab ficam em `/home/mr_robot/docker/<stack>/` (pihole, media).
+stacks do homelab ficam em `/home/mr_robot/docker/<stack>/` (pihole, media, caddy).
 
 ---
 
@@ -64,13 +64,17 @@ backend/
     routes.rs    # handlers HTTP + AppError (IntoResponse)
     docker.rs    # coletor via bollard
     pihole.rs    # cliente da API v6 do Pi-hole (sessão reaproveitada)
+    host.rs      # métricas do servidor: /proc, /sys e statvfs (disco)
 frontend/
   src/
     main.ts            App.vue
     api.ts             # client HTTP tipado — espelha os tipos do backend
-    format.ts  style.css   # formatação pt-BR e tokens de tema (claro/escuro)
-    components/        # ContainerTable.vue, PiholeCard.vue
-    composables/       # usePolling (genérico), useContainers, useHealth, usePihole
+    services.ts        # serviços fixos (canais do rack): container, subdomínio HTTPS, porta
+    leds.ts            # tipo Led e classes dos LEDs de status
+    links.ts           # endereço direto host:porta
+    format.ts  style.css   # formatação pt-BR (vírgula decimal) e tokens do tema "painel de aparelho"
+    components/        # HostCard.vue (painel + Meter.vue), ServiceCard.vue, ContainerTable.vue, PiholeCard.vue
+    composables/       # usePolling (genérico), useContainers, useHealth, usePihole, useHost
   nginx.conf           # produção: serve o dist + proxy /api → sentinel-backend:8087
 docs/                  # vault Obsidian (ver acima)
 docker-compose.yml     # stack completa: docker-proxy + backend + frontend

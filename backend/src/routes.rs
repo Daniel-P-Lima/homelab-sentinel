@@ -8,6 +8,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::docker::{self, ContainerInfo, DockerError};
+use crate::host::{HostError, HostSummary};
 use crate::pihole::{PiholeError, PiholeSummary};
 use crate::state::AppState;
 
@@ -23,6 +24,8 @@ pub enum AppError {
     Docker(#[from] DockerError),
     #[error(transparent)]
     Pihole(#[from] PiholeError),
+    #[error(transparent)]
+    Host(#[from] HostError),
 }
 
 #[derive(Serialize)]
@@ -37,6 +40,7 @@ impl IntoResponse for AppError {
             AppError::Docker(_) => StatusCode::INTERNAL_SERVER_ERROR,
             // o erro é do serviço do outro lado, não deste backend
             AppError::Pihole(_) => StatusCode::BAD_GATEWAY,
+            AppError::Host(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         if status.is_server_error() {
             tracing::error!("{self}");
@@ -80,4 +84,14 @@ pub async fn pihole_summary(
         .ok_or(AppError::Unavailable("Pi-hole"))?;
 
     Ok(Json(client.summary().await?))
+}
+
+pub async fn host_summary(State(state): State<AppState>) -> Result<Json<HostSummary>, AppError> {
+    let host = state
+        .inner
+        .host
+        .as_ref()
+        .ok_or(AppError::Unavailable("Métricas do servidor"))?;
+
+    Ok(Json(host.summary().await?))
 }

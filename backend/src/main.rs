@@ -1,4 +1,5 @@
 mod docker;
+mod host;
 mod pihole;
 mod routes;
 mod state;
@@ -22,6 +23,7 @@ async fn main() {
         .route("/api/health", get(routes::health))
         .route("/api/containers", get(routes::list_containers))
         .route("/api/pihole/summary", get(routes::pihole_summary))
+        .route("/api/host", get(routes::host_summary))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

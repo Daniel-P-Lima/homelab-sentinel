@@ -346,6 +346,7 @@ dependencies = [
  "futures-util",
  "idna_adapter",
  "indexmap 2.2.6",
+ "libc",
  "reqwest",
  "serde",
  "serde_json",

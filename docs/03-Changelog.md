@@ -159,4 +159,79 @@ tags: [homelab, changelog]
   - O fluxo do Windows (sintaxe PowerShell, fim de linha) foi escrito sem
     testar numa máquina Windows.
 
+## 2026-10-15 — Cards dos serviços e endereços HTTPS
+- Os serviços fixos do homelab (Jellyfin, qBittorrent, File Browser e
+  Cockpit) ganharam um card cada no topo: estado, CPU, memória, link
+  HTTPS pelo Caddy (`https://<serviço>.fsocietyserver.duckdns.org`) e o
+  `ip:porta` direto como reserva para quando o Caddy cair. O Cockpit não é
+  container, então o card dele só tem os links.
+- A lista fica em `frontend/src/services.ts` (container ↔ subdomínio ↔
+  porta). Container fora dela vai para a tabela, agora "Outros containers".
+- `useContainers()` passou a ser chamado uma vez só, no `App.vue`, que
+  repassa os dados por props aos cards e à tabela: dois polls dobrariam as
+  chamadas de stats, que custam ~1-2s cada no daemon.
+- O Pi-hole não ganhou card pequeno (repetiria o card de estatísticas): o
+  card grande passou a ter o link HTTPS, o acesso direto e uma linha
+  pequena com estado, CPU e memória do container (que sai da tabela).
+- Links para os serviços com `rel="noopener noreferrer"`: o qBittorrent
+  respondia 401 "Unauthorized" ao clique, porque a proteção CSRF dele recusa
+  `Referer` de outra origem (reproduzido com `curl -H Referer`).
+- Favicon (`frontend/public/favicon.svg`): escudo com linha de pulso.
+- Sem mudança no backend. `vue-tsc -b` e `npm run build` rodados num
+  container `node:22-slim`; frontend redeployado no homelab e conferido pelo
+  bundle servido.
+- **Pendências:**
+  - Não foi aberto num navegador: falta ver o layout no desktop e no
+    celular, claro e escuro.
+  - Os links HTTPS só abrem com o Tailscale ligado (o DuckDNS aponta pro IP
+    100.x). Na LAN sem Tailscale, só o acesso direto funciona.
+  - O domínio está fixo em `services.ts`; trocar de domínio exige rebuild.
+
+## 2026-10-15 — Card do servidor
+- Backend: `host.rs` + `GET /api/host` com CPU% (delta de duas leituras do
+  `/proc/stat`, 500ms), carga, memória e swap (`/proc/meminfo`), uptime,
+  temperatura do processador (zona `x86_pkg_temp`), bateria (o servidor é
+  um notebook: capacidade, estado e saúde) e disco via `statvfs`. Sem
+  `/proc` (Mac) o endpoint dá 503, no mesmo padrão do Docker. 8 testes novos
+  com recortes reais do servidor; dependência nova: `libc` (já estava no
+  lock como transitiva).
+- Compose: `~/media` montado só-leitura em `/host/disk` (`HOST_DISK_PATH`).
+- Frontend: `HostCard.vue` no topo, com barras que ficam amarelas/vermelhas
+  por nível de uso e um aviso quando a bateria está descarregando (= faltou
+  energia em casa).
+- Validado: `cargo build`/`test`/`clippy -D warnings` no `rust:1.80-slim`,
+  `vue-tsc` + `vite build` no `node:22-slim`, stack redeployada e o JSON do
+  `/api/host` conferido com `df`, `/proc/uptime` e `/sys` no servidor.
+- **Pendências:**
+  - Não aberto num navegador (layout desktop/celular, claro/escuro).
+  - O aviso de "na bateria" não foi testado ao vivo (exige tirar o
+    notebook da tomada).
+  - O disco mostra ~98 GB porque o volume LVM do Ubuntu foi criado com
+    100 GB de um SSD de 447 GB; ao estender (`lvextend -r`), o card acompanha
+    sem mudança de código.
+
+## 2026-10-15 — Visual "painel de aparelho"
+- Frontend redesenhado com o plugin `frontend-design`: o servidor vira um
+  equipamento de alumínio escovado (grafite anodizado no tema escuro), com
+  LEDs de status reais (Energia, Sentinel, Docker, DNS), indicador de
+  bateria em células e quatro medidores de ponteiro (`Meter.vue`, SVG) para
+  CPU, memória, disco e temperatura.
+- Serviços num rack único com divisórias (canais), em vez de cards soltos;
+  botão "Abrir <serviço>" e acesso direto embaixo. Pi-hole e tabela viram
+  visores rebaixados. Emojis, pills e fonte monoespaçada saíram.
+- Tipografia: IBM Plex Sans Condensed, servida pelo próprio dashboard
+  (`@fontsource`, sem Google Fonts). Números com vírgula decimal em toda a
+  página (`fmtDecimal`); estado do Docker traduzido ("No ar há 2 horas").
+- `usePihole()` subiu para o `App.vue` como os containers: o LED de DNS e o
+  card do Pi-hole usam o mesmo poll.
+- Movimento: só o ponteiro (sai do zero na primeira leitura e acompanha os
+  dados) e o LED de alerta piscando; `prefers-reduced-motion` desliga ambos.
+- Validado: `vue-tsc` + `vite build` no `node:22-slim`; redeploy e
+  screenshots com Chrome headless em desktop claro, desktop escuro e
+  celular (390px).
+- **Pendências:**
+  - Não testado num navegador real com interação (foco por teclado,
+    hover); só screenshots.
+  - O LED de alerta piscando e o aviso de bateria não foram vistos ao vivo.
+
 <!-- Próxima entrada: Fase 3 — background jobs + persistência histórica -->

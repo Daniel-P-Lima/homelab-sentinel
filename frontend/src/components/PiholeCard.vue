@@ -1,79 +1,78 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { usePihole } from '../composables/usePihole'
-import { fmtNumber, fmtRelative } from '../format'
-import { PIHOLE_WEB_PORT, hostAddress, serviceUrl } from '../links'
+import type { ContainerInfo, PiholeSummary } from '../api'
+import { fmtContainerStatus, fmtDecimal, fmtMb, fmtNumber, fmtPercent, fmtRelative } from '../format'
+import { ledClass, type Led } from '../leds'
+import { PIHOLE_SERVICE, directAddress, directUrl, httpsUrl } from '../services'
 
-const { summary, error, loading } = usePihole()
+// Dados vêm do App.vue: o LED de DNS no painel do servidor usa o mesmo poll.
+const props = defineProps<{
+  summary: PiholeSummary | null
+  error: string | null
+  loading: boolean
+  /** undefined = ainda carregando; null = o container não existe. */
+  container: ContainerInfo | null | undefined
+}>()
 
-const adminUrl = serviceUrl(PIHOLE_WEB_PORT, '/admin/')
-const adminAddress = hostAddress(PIHOLE_WEB_PORT)
-
-const blockingLabel = computed(() => {
-  switch (summary.value?.blocking) {
+const blocking = computed<{ text: string; led: Led['state'] }>(() => {
+  switch (props.summary?.blocking) {
     case 'enabled':
-      return { text: 'Proteção ativa', cls: 'pill-ok' }
+      return { text: 'Bloqueando anúncios', led: 'on' }
     case 'disabled':
-      return { text: 'Proteção desligada', cls: 'pill-danger' }
+      return { text: 'Bloqueio desligado', led: 'warn' }
     case 'failed':
-      return { text: 'Falha no bloqueio', cls: 'pill-danger' }
+      return { text: 'Falha no bloqueio', led: 'alert' }
     default:
-      return { text: 'Estado desconhecido', cls: 'pill-warn' }
+      return { text: 'Estado do bloqueio desconhecido', led: 'off' }
   }
 })
 
 // a barra de cada domínio é proporcional ao mais bloqueado da lista
-const topMax = computed(() => Math.max(1, ...(summary.value?.top_blocked.map((d) => d.count) ?? [])))
+const topMax = computed(() => Math.max(1, ...(props.summary?.top_blocked.map((d) => d.count) ?? [])))
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-header">
-      <div>
-        <h2>🛡️ Pi-hole</h2>
-        <a class="service-link" :href="adminUrl" target="_blank" rel="noopener">{{ adminAddress }} ↗</a>
-      </div>
-      <span v-if="summary" class="pill" :class="blockingLabel.cls">{{ blockingLabel.text }}</span>
+  <section class="display pihole" aria-labelledby="pihole-title">
+    <header class="section-title">
+      <h2 id="pihole-title">Pi-hole</h2>
+      <span v-if="summary" class="state">
+        <span class="led" :class="ledClass(blocking.led)" />
+        {{ blocking.text }}
+      </span>
     </header>
 
-    <!-- erro aparece junto com o último resumo bom, não no lugar dele -->
-    <p v-if="error" class="notice notice-danger">Não foi possível atualizar o Pi-hole: {{ error }}</p>
-    <p v-if="loading" class="muted">Carregando Pi-hole...</p>
+    <p v-if="error" class="notice notice-danger">Sem resposta do Pi-hole: {{ error }}</p>
+    <p v-if="loading" class="muted">Lendo o Pi-hole...</p>
 
     <template v-else-if="summary">
-      <div class="stats">
-        <div class="stat">
-          <span class="stat-label">Consultas (24h)</span>
-          <span class="stat-value">{{ fmtNumber(summary.queries_total) }}</span>
+      <dl class="figures">
+        <div>
+          <dt>Consultas nas últimas 24h</dt>
+          <dd>{{ fmtNumber(summary.queries_total) }}</dd>
         </div>
-        <div class="stat">
-          <span class="stat-label">Bloqueadas</span>
-          <span class="stat-value">{{ fmtNumber(summary.queries_blocked) }}</span>
-          <div class="bar" :title="`${summary.percent_blocked.toFixed(1)}% bloqueado`">
-            <span :style="{ width: `${Math.min(summary.percent_blocked, 100)}%` }" />
-          </div>
-          <span class="stat-hint">{{ summary.percent_blocked.toFixed(1) }}% do total</span>
+        <div>
+          <dt>Bloqueadas</dt>
+          <dd>{{ fmtNumber(summary.queries_blocked) }}</dd>
+          <span class="hint">{{ fmtDecimal(summary.percent_blocked, 1) }}% do total</span>
         </div>
-        <div class="stat">
-          <span class="stat-label">Aparelhos ativos</span>
-          <span class="stat-value">{{ fmtNumber(summary.clients_active) }}</span>
+        <div>
+          <dt>Aparelhos ativos</dt>
+          <dd>{{ fmtNumber(summary.clients_active) }}</dd>
         </div>
-        <div class="stat">
-          <span class="stat-label">Domínios na blocklist</span>
-          <span class="stat-value">{{ fmtNumber(summary.domains_on_blocklist) }}</span>
-          <span v-if="summary.gravity_last_update" class="stat-hint">
-            listas atualizadas {{ fmtRelative(summary.gravity_last_update) }}
+        <div>
+          <dt>Domínios na lista de bloqueio</dt>
+          <dd>{{ fmtNumber(summary.domains_on_blocklist) }}</dd>
+          <span v-if="summary.gravity_last_update" class="hint">
+            Listas atualizadas {{ fmtRelative(summary.gravity_last_update) }}
           </span>
         </div>
-      </div>
+      </dl>
 
       <h3>Mais bloqueados</h3>
       <p v-if="summary.queries_total === 0" class="muted empty">
-        Nenhuma consulta nas últimas 24h. Os aparelhos da rede já usam o Pi-hole como DNS?
+        Nenhuma consulta nas últimas 24h. Confira se o roteador entrega o servidor como DNS.
       </p>
-      <p v-else-if="summary.top_blocked.length === 0" class="muted empty">
-        Nada bloqueado nas últimas 24h.
-      </p>
+      <p v-else-if="summary.top_blocked.length === 0" class="muted empty">Nada bloqueado nas últimas 24h.</p>
       <ol v-else class="top">
         <li v-for="d in summary.top_blocked" :key="d.domain">
           <div class="top-row">
@@ -81,71 +80,116 @@ const topMax = computed(() => Math.max(1, ...(summary.value?.top_blocked.map((d)
             <span class="muted">{{ fmtNumber(d.count) }}</span>
           </div>
           <div class="bar">
-            <span :style="{ width: `${(d.count / topMax) * 100}%`, background: 'var(--danger)' }" />
+            <span :style="{ width: `${(d.count / topMax) * 100}%` }" />
           </div>
         </li>
       </ol>
     </template>
+
+    <footer class="foot">
+      <p v-if="container" class="container muted">
+        Container {{ fmtContainerStatus(container.state, container.status).toLowerCase() }}, CPU
+        {{ fmtPercent(container.cpu_percent) }}, memória
+        {{ container.mem_usage_mb === null ? '—' : fmtMb(container.mem_usage_mb) }}
+      </p>
+      <p v-else-if="container === null" class="container">
+        <span class="led led-alert" /> Container do Pi-hole não encontrado
+      </p>
+      <div class="links">
+        <a class="link-quiet" :href="httpsUrl(PIHOLE_SERVICE)" target="_blank" rel="noopener noreferrer">
+          Abrir painel do Pi-hole
+        </a>
+        <a
+          class="link-quiet"
+          :href="directUrl(PIHOLE_SERVICE)"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Acesso direto pela porta, sem passar pelo Caddy"
+          >Direto: {{ directAddress(PIHOLE_SERVICE) }}</a
+        >
+      </div>
+    </footer>
   </section>
 </template>
 
 <style scoped>
-.stats {
+.pihole {
+  padding: 1.2rem 1.3rem;
+}
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+}
+.figures {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1rem 1.25rem;
+  margin: 0;
 }
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.85rem;
-  border-radius: 10px;
-  background: var(--surface-2);
+dt {
+  color: var(--engraved);
+  font-size: 0.85rem;
 }
-.stat-label {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+dd {
+  margin: 0.1rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.15;
 }
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-.stat-hint {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.hint {
+  color: var(--engraved);
+  font-size: 0.85rem;
 }
 h3 {
-  margin: 1.25rem 0 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  margin: 1.4rem 0 0.6rem;
+  font-size: 1rem;
 }
 .empty {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
 }
 .top {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .top-row {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.85rem;
   margin-bottom: 0.25rem;
+  font-size: 0.92rem;
 }
 .domain {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: ui-monospace, monospace;
-  font-size: 0.8rem;
+}
+.top .bar > span {
+  background: var(--needle);
+}
+.foot {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1.3rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--rule);
+}
+.container {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.25rem;
 }
 </style>

@@ -30,6 +30,13 @@ services:
       # porta publicada 8082. Senha vem do .env (ver .env.example).
       - PIHOLE_URL=http://host.docker.internal:8082
       - PIHOLE_PASSWORD=${PIHOLE_PASSWORD:-}
+      # Card do servidor: CPU, memória, temperatura e bateria vêm do /proc e
+      # /sys que o container já enxerga. O disco precisa de um caminho do host:
+      # o statvfs mede o sistema de arquivos onde ele está. ~/media porque é o
+      # que enche; se um dia for para outro disco, o card passa a medir esse.
+      - HOST_DISK_PATH=/host/disk
+    volumes:
+      - /home/mr_robot/media:/host/disk:ro
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:

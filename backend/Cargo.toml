@@ -17,6 +17,8 @@ thiserror = "1"
 # sem default features: o Pi-hole é falado por HTTP na LAN, sem TLS — evita
 # puxar openssl/rustls pra imagem
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
+# statvfs (uso do disco), que a std não expõe — ver host.rs
+libc = "0.2"
 indexmap = "=2.2.6"
 time = "=0.3.36"
 idna_adapter = "=1.1.0"
